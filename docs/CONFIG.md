@@ -1,0 +1,240 @@
+# 泰兴中学校园墙 — 项目配置与部署指南
+
+> 面向下一次全新部署：从依赖安装、环境变量、部署、后台配置到图片/水印/审核/邮件等关键能力，按顺序照做即可。
+> 违规图片/文本审核回调的 COS 侧配置见 [`MODERATION_CALLBACK.md`](./MODERATION_CALLBACK.md)。
+
+---
+
+## 一、技术栈与目录
+
+- 后端：Go 1.21 + Gin + GORM + PostgreSQL + Redis（可选）+ 腾讯云 COS / 数据万象
+- 前端：Vue 3 + Vite + TypeScript + Element Plus + Tailwind + Pinia
+- 部署：Ubuntu 裸机 + Nginx（80）+ 后端二进制（systemd 或脚本）；EdgeOne 可在边缘终结 SSL
+
+```
+backend/        Go 后端
+frontend/       Vue3 前端
+deploy/         provision.sh / deploy.sh / run.sh / stop.sh / nginx.conf.example / systemd 单元
+docs/           文档
+```
+
+---
+
+## 二、首次部署步骤
+
+### 1. 环境初始化
+
+```bash
+sudo bash deploy/provision.sh
+# 安装 PostgreSQL / Redis / Nginx / 中文字体，并创建数据库与用户（幂等）
+```
+
+手动等价命令：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql redis-server nginx fonts-noto-cjk
+sudo -u postgres psql -c "CREATE USER tzwall WITH PASSWORD '你的强密码';"
+sudo -u postgres psql -c "CREATE DATABASE tzwall OWNER tzwall;"
+```
+
+> `pg_trgm` 扩展会在迁移时自动创建（用于搜索）。
+
+### 2. 配置环境变量
+
+```bash
+cd backend
+cp .env.example .env
+# 编辑 .env（见第三节）
+```
+
+### 3. 构建与发布
+
+```bash
+# 一键：构建后端二进制 + 构建前端 dist + 写 Nginx 配置 + 重启后端
+sudo AND 环境就绪后在仓库根目录执行：
+bash deploy/deploy.sh
+```
+
+`deploy.sh` 会：
+- `go build -o tzwall ./cmd/tzwall`
+- `npm run build`（输出 `frontend/dist`）
+- 复制 `deploy/nginx.conf.example` 到 `/etc/nginx/sites-enabled/tzwall`，并把 root 替换为实际的 `frontend/dist` 路径
+- 停止旧进程并 `deploy/run.sh` 启动，最后做 `/api/health` 健康检查
+
+### 4. 仅重启前后端（已构建过）
+
+```bash
+bash deploy/stop.sh
+bash deploy/run.sh      # 日志：/var/log/tzwall.log
+# 若改了前端：cd frontend && npm run build && sudo nginx -s reload
+```
+
+### 5. systemd 方式（可选）
+
+`deploy/tzwall.service`、`deploy/backup.service`、`deploy/backup.timer` 可复制到 `/etc/systemd/system/` 后 `systemctl enable --now tzwall`。
+
+---
+
+## 三、环境变量（backend/.env）
+
+> **敏感项不要入库**：`.env` 已在 `.gitignore` 中忽略，仅保留 `.env.example` 模板。
+
+| 变量 | 说明 | 示例 |
+|---|---|---|
+| `SERVER_PORT` | 后端监听端口（Nginx 反代目标） | `8080` |
+| `DB_HOST` / `DB_PORT` | PostgreSQL 地址 | `127.0.0.1` / `5432` |
+| `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 数据库账号/密码/库名 | `tzwall` / `******` / `tzwall` |
+| `DB_SSLMODE` | 数据库 SSL 模式 | `disable` |
+| `REDIS_ADDR` | Redis 地址；留空则用内存缓存 | `127.0.0.1:6379` |
+| `REDIS_PASSWORD` / `REDIS_DB` | Redis 密码 / 库号 | `******` / `0` |
+| `JWT_SECRET` | 登录令牌签名密钥（**务必更换为长随机串**） | 64 位随机 |
+| `AES_KEY_B64` | 32 字节 AES 密钥的 Base64（用于加密敏感配置；图片链接签名密钥也由它派生） | `base64(32字节)` |
+| `COS_SECRET_ID` / `COS_SECRET_KEY` | 腾讯云 API 密钥 | `AKID...` / `******` |
+| `COS_BUCKET` / `COS_REGION` | 存储桶名与地域 | `tzwall-1321423822` / `ap-nanjing` |
+| `COS_BASE_URL` | 自定义访问域名（用于图片处理请求；需带 `https://` 才启用，否则回退源站域名） | `https://cos.example.com` |
+| `COS_AUDIT_BIZ_TYPE` | 数据万象审核策略 BizType；留空使用默认策略 | 空 |
+| `COS_CALLBACK_TOKEN` | 审核回调校验令牌；**使用 COS 内容审核控制台回调时必须留空**（该回调不带自定义头） | 空 |
+| `SMTP_HOST` / `SMTP_PORT` | 邮件服务器（465 为隐式 TLS） | `smtp.163.com` / `465` |
+| `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | 发件账号/密码/发件人 | `xxx@163.com` / `******` / 同上 |
+| `TRUSTED_PROXIES` | 可信代理（用于解析真实 IP，逗号分隔 CIDR/IP） | `127.0.0.1` |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_EMAIL` / `ADMIN_REAL_NAME` / `ADMIN_SCHOOL` | 首次启动创建的超级管理员 | `admin` / `******` … |
+
+生成密钥示例：
+
+```bash
+# AES_KEY_B64（32 字节）
+openssl rand -base64 32
+# JWT_SECRET
+openssl rand -hex 32
+```
+
+---
+
+## 四、Nginx 反代
+
+参考 `deploy/nginx.conf.example`：
+
+- 前端静态：`root <项目>/frontend/dist; try_files $uri $uri/ /index.html;`
+- API 反代：`location /api/ { proxy_pass http://127.0.0.1:8080; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_read_timeout 60s; }`
+- `client_max_body_size 20m;`（图片上传）
+- 真实 IP 依赖 `X-Forwarded-For` + `TRUSTED_PROXIES`
+
+---
+
+## 五、后台配置中心（/admin/configs，仅超管）
+
+大部分配置**改后即时生效，无需重启**（敏感项加密存储、留空表示不修改）。
+
+### 站点
+| 键 | 说明 | 默认 |
+|---|---|---|
+| `site_name` | 站点名称 | 泰兴中学校园墙 |
+| `site_url` | 站点访问地址，用于**邮件中的激活/重置链接** | 空（回退 `http://localhost`） |
+| `agreement_required` | 协议更新后强制已登录用户重新确认 | true |
+
+### 注册与登录
+`register_rph`、`login_rph`、`login_fail_user_limit`、`login_fail_admin_limit`、`login_lock_minutes`、`email_verify_ttl_hours`
+
+### 发帖与评论
+`comment_max_len`、`comment_max_depth`、`tag_max_count`
+
+### 图片
+| 键 | 说明 | 默认 |
+|---|---|---|
+| `image_max_size_mb` / `image_max_count` / `image_formats` | 上传大小/数量/格式 | 5 / 9 / jpg,png… |
+| `watermark_cache_seconds` | 代理图片服务端缓存秒数（**开启盲水印时不使用共享缓存**） | 600 |
+| `image_link_ttl_seconds` | 图片签名链接有效期（秒），过期需刷新页面重新签发 | 600 |
+| `image_blind_watermark` | 图片盲水印开关（用户名/ID+IP+时间，经数据万象写入） | true |
+
+### 审核与 AI
+`ai_enabled`、`ai_base_url`、`ai_api_key`（加密）、`ai_model`、`ai_prompt`、`ai_timeout_seconds`、`ai_daily_limit`
+
+### 举报
+`report_hour_limit`、`report_day_limit`、`report_reason_max_len`
+
+### 日志 / 运维 / 页脚
+`log_access_retention_days`、`log_audit_retention_days`、`upload_dir`、`ops_disk_warn_percent`、`ops_cos_alert_gb`、`backup_dir`、`footer_icp`、`footer_psba`、`footer_custom`
+
+> SMTP 也可在「系统配置 → 注册与登录」中填写（后台优先于 `.env`）。
+
+---
+
+## 六、图片方案（重点）
+
+当前采用 **私有读写 + 后端签名链接 + 盲水印**：
+
+1. **对象私有**：上传到 COS 时对象 ACL=`private`，浏览器不直接访问 COS。
+2. **签名时效链接**：稿件接口返回的图片地址形如
+   `/api/images/{id}?e={过期时间戳}&u={浏览者ID}&s={HMAC签名}`
+   - 签名 `HMAC-SHA256`，密钥由 `AES_KEY_B64` 派生；`u` 也参与签名，防止篡改；
+   - 有效期由 `image_link_ttl_seconds` 控制。
+3. **代理取流**：`GET /api/images/{id}` 校验签名与时效、Referer 防盗链后，从私有 COS 内部取流返回。
+4. **盲水印**：代理取流时附加数据万象规则
+   `?watermark/3/type/3/text/<URL安全Base64>`，文本为 `u{用户ID36}i{IP压缩36}t{时间Unix36}`（文字盲水印仅支持字母数字，故用 base36/压缩）。
+   - 关闭：后台 `image_blind_watermark=false`；需桶已开通数据万象图片处理。
+   - 图片处理异常会自动回退原图。
+5. **违规图自动下架**：见 [`MODERATION_CALLBACK.md`](./MODERATION_CALLBACK.md)。
+
+**存量对象 ACL 校正**（把历史对象统一设为私有）：
+
+```bash
+# 以超管登录拿 token 后
+curl -X POST http://127.0.0.1/api/admin/images/sync-private \
+  -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>"
+```
+
+---
+
+## 七、邮件与激活
+
+- SMTP 推荐 465（隐式 TLS，已内置支持）或 587（STARTTLS）。
+- 邮件正文中的激活/重置链接为**绝对可点击链接**，基于 `site_url` 生成：
+  `{site_url}/verify?token=...`、`{site_url}/reset?token=...`。
+  上线务必把 `site_url` 配成真实域名（如 `https://wall.example.com`）。
+- 注册发信为异步，不会阻塞注册请求。
+
+---
+
+## 八、权限与角色
+
+- 角色：`user` / `admin` / `super_admin`；超管直通，不受限流。
+- 后台「访问权限」按 **端点** 配置允许与四档限流；页面权限由端点权限推导。
+- 新端点/页面在代码 `permission/registry.go` 登记后，重启会自动补齐默认授权（幂等，不覆盖已有配置）。
+- 新增后台能力后，如管理员看不到入口，去「访问权限」勾选对应端点或重启让默认授权生效。
+
+---
+
+## 九、备份与运维
+
+- `deploy/backup.sh` + `backup.timer`：定时 `pg_dump` 到 `backup_dir`。
+- 运维面板 `/admin/ops`：磁盘/数据库/COS 用量、六项健康（db/redis/cos/moderation/mailer/ai）、备份列表、阈值告警。
+- 访问/审计日志保留天数由配置控制。
+
+---
+
+## 十、上线检查清单
+
+- [ ] `JWT_SECRET`、`AES_KEY_B64`、数据库密码均已更换为强随机值
+- [ ] `site_url` 已配置为真实域名（HTTPS）
+- [ ] `TRUSTED_PROXIES` 与 Nginx/EdgeOne 回源一致，真实 IP 正确
+- [ ] COS 桶：私有读写（或按需私有写公有读），已开通数据万象图片处理
+- [ ] 存量图片已执行 `sync-private`（如曾切换过 ACL）
+- [ ] SMTP 可用，能收到激活邮件且链接可点击
+- [ ] 审核回调已按 `MODERATION_CALLBACK.md` 配置并验证
+- [ ] `curl http://127.0.0.1/api/health` 返回 `{"status":"ok"}`
+- [ ] 前端域名访问正常，后台各页面可打开
+
+---
+
+## 十一、常见问题
+
+| 现象 | 排查 |
+|---|---|
+| 图片 403 | 链接过期（刷新页面重新签发）／签名被改（`u/e/s`）／Referer 非同站／图片已被判定违规下架 |
+| 图片 404 | 对象不存在或被内容审核转移至 `audit_freeze_backup/increment_audit` |
+| 图片不显示且后台 `audit=block` | 已判定违规并下架；确认无违规后再处理 |
+| 邮件发不出 | `.env`/后台 SMTP 未配置；465 需隐式 TLS（已支持）；检查发件账号授权码 |
+| 登录 429 | 触发登录频率限制（`login_rph`），或 Redis 中 `rl:login:*` 计数 |
+| 后台入口缺失 | 「访问权限」未授权该端点／页面 |
+| 定时任务/备份不跑 | `systemctl status tzwall-backup.timer` |

@@ -1,0 +1,9 @@
+[Unit]
+Description=Taixing Campus Wall Daily Backup Timer
+
+[Timer]
+OnCalendar=Daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,122 @@
+# ============================================
+# 泰兴中学校园墙 — Git 忽略规则
+# 技术栈：Go 后端 + Vue3/Vite 前端 + Nginx 部署
+# ============================================
+
+# ---------- 敏感配置（绝不入库）----------
+# 含腾讯云 SecretId/SecretKey、JWT 密钥、AES 密钥、数据库密码
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets.*
+auth.json
+
+# ---------- 后端（Go）----------
+# 编译产物
+backend/tzwall
+backend/*.exe
+backend/*.test
+backend/*.out
+backend/server
+backend/bin/
+backend/dist/
+
+# 本地数据：COS 未配置时的上传目录、SQLite 等
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Go 覆盖率与工具缓存
+coverage.txt
+*.cover
+profile.cov
+
+# ---------- 前端（Vue3 + Vite）----------
+frontend/node_modules/
+frontend/.pnpm-store/
+
+# 构建产物（由 deploy.sh 在服务器上构建）
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
+frontend/.eslintcache
+
+# 本地调试与日志
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/.output/
+frontend/.nuxt/
+
+# ---------- 日志与运行时 ----------
+*.log
+logs/
+npm-debug.log*
+nohup.out
+core
+core.*
+
+# ---------- 测试与截图产物 ----------
+.playwright-cli/
+playwright-report/
+test-results/
+blob-report/
+screenshots/
+videos/
+coverage/
+.nyc_output/
+
+# ---------- 备份文件 ----------
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+
+# ---------- 压缩包 ----------
+*.gz
+*.tgz
+*.tar
+*.zip
+*.rar
+*.7z
+
+# ---------- 系统与编辑器 -----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.swp
+.project
+.settings/
+.classpath
+
+# ---------- 代理与工具 ----------
+.codebuddy/
+.claude/
+.cursor/
+.aider*
+.windsurf/
+
+# ---------- 文档构建 -----------
+docs/_build/
+site/

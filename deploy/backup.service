@@ -1,0 +1,8 @@
+[Unit]
+Description=Taixing Campus Wall Daily Backup
+
+[Service]
+Type=oneshot
+User=tzwall
+EnvironmentFile=/opt/tzwall/backend/.env
+ExecStart=/opt/tzwall/deploy/backup.sh

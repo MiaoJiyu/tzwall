@@ -1,0 +1,20 @@
+[Unit]
+Description=Taixing Middle School Campus Wall API
+After=network.target postgresql.service redis.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=tzwall
+Group=tzwall
+WorkingDirectory=/opt/tzwall/backend
+EnvironmentFile=/opt/tzwall/backend/.env
+ExecStart=/opt/tzwall/backend/tzwall
+Restart=on-failure
+RestartSec=3
+# 限制资源，避免异常占用
+MemoryMax=512M
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

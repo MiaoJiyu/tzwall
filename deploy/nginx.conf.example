@@ -1,0 +1,28 @@
+# 泰兴中学校园墙 — Nginx 反代示例
+# 说明：Nginx 监听 80，EdgeOne 在边缘终结 SSL 并回源到本端口；
+#       源站不直接暴露 HTTPS。真实客户端 IP 经 X-Forwarded-For 传递。
+server {
+    listen 80;
+    server_name _;
+
+    client_max_body_size 20m;
+
+    # 前端静态资源（由 `npm run build` 生成的 dist 目录）
+    root /opt/tzwall/frontend/dist;
+    index index.html;
+
+    # API 反向代理到后端（后端 SERVER_PORT 建议设为 8080）
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # 单页应用路由回退
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
