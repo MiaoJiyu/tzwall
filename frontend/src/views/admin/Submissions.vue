@@ -87,6 +87,11 @@ onMounted(load)
           </span>
         </div>
 
+        <!-- AI 审核评论（仅管理员可见）：通过/拒绝原因 -->
+        <div v-if="s.audit_comment" class="mt-2 rounded-lg bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--grape)]">
+          <span class="font-semibold">AI 审核意见：</span>{{ s.audit_comment }}
+        </div>
+
         <textarea v-model="note[s.id]" rows="2" placeholder="审核意见（仅投稿人可见）" class="input-style mt-3 h-auto py-2"></textarea>
 
         <div class="mt-3 flex flex-wrap gap-2">

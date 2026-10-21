@@ -42,8 +42,8 @@ async function submit() {
         <span class="font-serif-sc text-xl font-bold">泰兴中学校园墙</span>
       </div>
       <div>
-        <h2 class="font-serif-sc text-4xl font-bold leading-snug">襟江文脉<br />行方品正</h2>
-        <p class="mt-4 max-w-sm text-white/85">崇文尚实，记录校园里每一份真诚的分享。</p>
+        <h2 class="font-serif-sc text-4xl font-bold leading-snug">爱国 <br />严谨</h2>
+        <p class="mt-4 max-w-sm text-white/85">勤奋 奉献，记录校园里每一份真诚的分享。</p>
       </div>
       <p class="text-xs text-white/60">© 泰兴中学校园墙</p>
     </div>

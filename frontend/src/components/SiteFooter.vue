@@ -9,7 +9,7 @@ const meta = useMetaStore()
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span class="font-serif-sc font-semibold text-[var(--grape)]">{{ meta.site.site_name || '泰兴中学校园墙' }}</span>
         <span class="text-[var(--border)]">·</span>
-        <span>襟江文脉 · 行方品正 · 崇文尚实</span>
+        <span>爱国 · 严谨 · 勤奋 · 奉献</span>
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
         <a v-if="meta.site.footer_icp" :href="meta.site.footer_icp_link || '#'" target="_blank" rel="noopener" class="hover:text-[var(--grape)]">

@@ -58,6 +58,8 @@ func (h *ModerationHandler) Callback(c *gin.Context) {
 	if key, forbidden, label, ok := parseContentAudit(body); ok {
 		if forbidden {
 			h.blockMediaByKey(key, label)
+		} else {
+			h.passMediaByKey(key)
 		}
 		response.OK(c, gin.H{"received": true})
 		return
@@ -80,16 +82,17 @@ func (h *ModerationHandler) applyTask(task *model.ModerationTask, v moderation.V
 		"updated_at": time.Now(),
 	})
 
-	// 联动业务对象：bizID 形如 sub-<投稿ID> 或 img-<对象键>
+	// 联动业务对象：bizID 形如 sub-<投稿ID>、img-<对象键>、vid-<对象键>
 	switch {
 	case strings.HasPrefix(task.BizID, "sub-"):
 		if sid, err := strconv.ParseUint(strings.TrimPrefix(task.BizID, "sub-"), 10, 64); err == nil {
+			if v.Blocked {
+				// 腾讯云文本审核拒绝 → 立即驳回稿件
+				h.rejectSubmission(h.db, uint(sid), "文本", v.Reason)
+				return
+			}
 			h.db.Model(&model.Submission{}).Where("id = ?", uint(sid)).
 				Update("audit_status", status)
-			if v.Blocked {
-				h.db.Model(&model.Submission{}).Where("id = ?", uint(sid)).
-					Update("status", model.StatusPending)
-			}
 		}
 	case strings.HasPrefix(task.BizID, "img-"):
 		key := strings.TrimPrefix(task.BizID, "img-")
@@ -98,8 +101,28 @@ func (h *ModerationHandler) applyTask(task *model.ModerationTask, v moderation.V
 			h.blockMediaByKey(key, v.Reason)
 			return
 		}
-		h.db.Model(&model.SubmissionImage{}).Where("storage_key = ?", key).
-			Update("audit_status", status)
+		var img model.SubmissionImage
+		if err := h.db.Where("storage_key = ?", key).First(&img).Error; err == nil {
+			h.db.Model(&model.SubmissionImage{}).Where("id = ?", img.ID).
+				Update("audit_status", status)
+			if img.SubmissionID != nil {
+				h.reconcileSubmission(*img.SubmissionID)
+			}
+		}
+	case strings.HasPrefix(task.BizID, "vid-"):
+		key := strings.TrimPrefix(task.BizID, "vid-")
+		if v.Blocked {
+			h.blockMediaByKey(key, v.Reason)
+			return
+		}
+		var vid model.SubmissionVideo
+		if err := h.db.Where("storage_key = ?", key).First(&vid).Error; err == nil {
+			h.db.Model(&model.SubmissionVideo{}).Where("id = ?", vid.ID).
+				Update("audit_status", status)
+			if vid.SubmissionID != nil {
+				h.reconcileSubmission(*vid.SubmissionID)
+			}
+		}
 	}
 }
 
@@ -144,6 +167,59 @@ func (h *ModerationHandler) rejectSubmission(tx *gorm.DB, submissionID uint, med
 		"audit_status": model.ModerationBlock,
 		"admin_note":   note,
 	})
+}
+
+// passMediaByKey 媒体经腾讯云审核通过后，更新元数据状态并复核所属投稿是否可自动放行。
+func (h *ModerationHandler) passMediaByKey(key string) {
+	if key == "" {
+		return
+	}
+	_ = h.db.Transaction(func(tx *gorm.DB) error {
+		var img model.SubmissionImage
+		if err := tx.Where("storage_key = ?", key).First(&img).Error; err == nil {
+			tx.Model(&model.SubmissionImage{}).Where("id = ?", img.ID).
+				Update("audit_status", model.ModerationPass)
+			if img.SubmissionID != nil {
+				h.reconcileSubmission(*img.SubmissionID)
+			}
+			return nil
+		}
+		var vid model.SubmissionVideo
+		if err := tx.Where("storage_key = ?", key).First(&vid).Error; err == nil {
+			tx.Model(&model.SubmissionVideo{}).Where("id = ?", vid.ID).
+				Update("audit_status", model.ModerationPass)
+			if vid.SubmissionID != nil {
+				h.reconcileSubmission(*vid.SubmissionID)
+			}
+			return nil
+		}
+		return nil
+	})
+}
+
+// reconcileSubmission 媒体异步审核完成后，若文本/AI 已通过且全部媒体均通过，则自动放行稿件。
+func (h *ModerationHandler) reconcileSubmission(subID uint) {
+	var sub model.Submission
+	if h.db.First(&sub, subID).Error != nil {
+		return
+	}
+	// 已被人工处置（驳回/通过/需修改）或仍处于待审，不自动放行
+	if sub.Status == model.StatusRejected || sub.Status == model.StatusApproved ||
+		sub.Status == model.StatusNeedEdit {
+		return
+	}
+	// 文本/AI 机审未通过（block/failed/review）不自动放行，交由人工
+	if sub.AuditStatus != model.ModerationPass {
+		return
+	}
+	var badImgs, badVids int64
+	h.db.Model(&model.SubmissionImage{}).
+		Where("submission_id = ? AND audit_status <> ?", subID, model.ModerationPass).Count(&badImgs)
+	h.db.Model(&model.SubmissionVideo{}).
+		Where("submission_id = ? AND audit_status <> ?", subID, model.ModerationPass).Count(&badVids)
+	if badImgs == 0 && badVids == 0 {
+		h.db.Model(&model.Submission{}).Where("id = ?", subID).Update("status", model.StatusApproved)
+	}
 }
 
 // contentAudit 兼容数据万象「详细回调(DETAIL)」与「简洁回调(SIMPLE)」两种结构。

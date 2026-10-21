@@ -97,6 +97,10 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 	if viewer != nil && viewer.IsAdmin() && realAuthor != "" {
 		v["real_author"] = realAuthor
 	}
+	// AI 审核评论（通过/拒绝原因），仅管理员在后台可见
+	if viewer != nil && viewer.IsAdmin() {
+		v["audit_comment"] = sub.AuditComment
+	}
 	return v
 }
 

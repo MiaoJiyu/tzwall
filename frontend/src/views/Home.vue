@@ -81,7 +81,7 @@ onMounted(() => {
     <!-- Hero -->
     <section class="mb-8 overflow-hidden rounded-xl2 border border-[var(--border)] bg-gradient-to-br from-grape-600 to-grape-700 p-8 text-white animate-fadeup">
       <h1 class="font-serif-sc text-3xl font-bold sm:text-4xl">校园墙</h1>
-      <p class="mt-2 max-w-xl text-sm text-white/85">襟江文脉，行方品正。在这里分享校园故事、求助与精彩瞬间。</p>
+      <p class="mt-2 max-w-xl text-sm text-white/85">爱国 严谨 勤奋 奉献。在这里分享校园故事、求助与精彩瞬间。</p>
       <button v-if="auth.isLoggedIn" class="btn-grape mt-5 rounded-full bg-white/95 px-5 py-2.5 text-sm font-semibold text-grape-700" @click="router.push('/publish')">
         <Plus :size="16" class="inline" /> 发布投稿
       </button>

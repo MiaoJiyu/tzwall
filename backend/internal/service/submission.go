@@ -126,7 +126,11 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 		return nil, errs.New(errs.CodeInternal, err)
 	}
 
-	status, auditStatus, note := s.reviewContent(sub, req)
+	status, auditStatus, note, auditComment := s.reviewContent(sub, req)
+	if auditComment != "" {
+		s.db.Model(sub).Update("audit_comment", auditComment)
+		sub.AuditComment = auditComment
+	}
 	if status != sub.Status {
 		s.db.Model(sub).Update("status", status)
 		sub.Status = status
@@ -200,36 +204,41 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 	return sub, nil
 }
 
-// reviewContent 内容审核状态机：腾讯云审核 → AI 复审 → 放行/驳回/转人工。
-// 返回投稿状态、机审状态与驳回原因（驳回原因对作者可见）。
-func (s *SubmissionService) reviewContent(sub *model.Submission, req CreateSubmissionReq) (model.SubmissionStatus, string, string) {
+// reviewContent 内容审核状态机：
+//   - 腾讯云（文本/媒体）审核拒绝 → 立即驳回稿件；
+//   - AI 审核拒绝 → 进入人工审核流程（pending）；
+//   - 腾讯云 + AI 审核均通过 → 立即放行（approved）。
+//
+// 返回值：投稿状态、机审状态、对作者可见的驳回原因、仅管理员可见的 AI 审核评论。
+func (s *SubmissionService) reviewContent(sub *model.Submission, req CreateSubmissionReq) (model.SubmissionStatus, string, string, string) {
 	text := strings.TrimSpace(req.Title + " " + req.Content)
 
-	// 0) 词表预检：命中违禁词直接驳回，避免消耗审核额度
+	// 0) 词表预检：命中违禁词直接驳回，避免消耗审核额度（原因对作者可见）
 	if s.words != nil && s.words.HasForbidden(text) {
 		slog.Default().Info("投稿命中违禁词，直接驳回", "submission", sub.ID)
-		return model.StatusRejected, model.ModerationBlock, "内容包含违禁词，请修改后重试"
+		return model.StatusRejected, model.ModerationBlock, "内容包含违禁词，请修改后重试", ""
 	}
 
 	// 1) 腾讯云数据万象文本审核
 	if !s.moderation.Configured() {
-		return model.StatusPending, model.ModerationReview, ""
+		return model.StatusPending, model.ModerationReview, "", ""
 	}
 	v, err := s.moderation.SubmitText(context.Background(), fmt.Sprintf("sub-%d", sub.ID), text)
 	switch {
 	case err != nil:
 		// 调用异常：直接驳回（按需求，不占用人工队列）
 		slog.Default().Warn("腾讯云审核调用异常，驳回投稿", "submission", sub.ID, "err", err.Error())
-		return model.StatusRejected, model.ModerationFailed, "内容审核服务暂时不可用，投稿未通过，请稍后重试"
+		return model.StatusRejected, model.ModerationFailed, "内容审核服务暂时不可用，投稿未通过，请稍后重试", ""
 	case v.Blocked:
-		return model.StatusRejected, model.ModerationBlock, "内容未通过审核：" + reasonOr(v.Reason, "涉嫌违规")
+		// 腾讯云审核拒绝 → 立即驳回
+		return model.StatusRejected, model.ModerationBlock, "内容未通过审核：" + reasonOr(v.Reason, "涉嫌违规"), ""
 	case !v.Pass:
-		return model.StatusPending, model.ModerationReview, ""
+		return model.StatusPending, model.ModerationReview, "", ""
 	}
 
-	// 2) AI 复审（云审核通过后才调用）
+	// 2) AI 复审（云审核通过后才调用）。AI 的通过/拒绝原因作为“审核评论”仅管理员可见。
 	if s.ai == nil || !s.ai.Configured() {
-		return model.StatusPending, model.ModerationReview, ""
+		return model.StatusPending, model.ModerationReview, "", ""
 	}
 	av, aerr := s.ai.Review(context.Background(), text)
 	switch {
@@ -237,13 +246,16 @@ func (s *SubmissionService) reviewContent(sub *model.Submission, req CreateSubmi
 		// AI 异常：转人工，绝不自动放行
 		slog.Default().Warn("AI 审核异常，转人工", "submission", sub.ID, "err", aerr.Error())
 		s.recordAudit(fmt.Sprintf("sub-%d", sub.ID), "ai", model.ModerationFailed, "AI异常", aerr.Error())
-		return model.StatusPending, model.ModerationReview, ""
+		return model.StatusPending, model.ModerationReview, "", "AI 审核异常，转人工复核"
 	case !av.Pass:
-		s.recordAudit(fmt.Sprintf("sub-%d", sub.ID), "ai", model.ModerationBlock, "AI", av.Reason)
-		return model.StatusRejected, model.ModerationBlock, "内容未通过审核：" + reasonOr(av.Reason, "AI 判定不适合公开")
+		// AI 审核拒绝 → 进入人工审核流程（不自动驳回）
+		comment := "AI 审核不通过：" + reasonOr(av.Reason, "判定不适合公开")
+		s.recordAudit(fmt.Sprintf("sub-%d", sub.ID), "ai", model.ModerationReview, "AI", av.Reason)
+		return model.StatusPending, model.ModerationReview, "", comment
 	}
+	comment := "AI 审核通过：" + reasonOr(av.Reason, "内容合规")
 	s.recordAudit(fmt.Sprintf("sub-%d", sub.ID), "ai", model.ModerationPass, "AI", av.Reason)
-	return model.StatusApproved, model.ModerationPass, ""
+	return model.StatusApproved, model.ModerationPass, "", comment
 }
 
 // recordAudit 记录一次机审（腾讯云 / AI）结果，便于后台追溯驳回理由。

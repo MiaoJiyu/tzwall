@@ -57,6 +57,9 @@ type Submission struct {
 	Status    SubmissionStatus `gorm:"size:20;default:pending;index" json:"status"`
 	AdminNote string           `gorm:"type:text" json:"admin_note,omitempty"` // 仅投稿人可见
 
+	// AuditComment AI 审核给出的通过/拒绝原因，作为“审核评论”仅管理员在后台可见。
+	AuditComment string `gorm:"type:text" json:"-"`
+
 	AuditStatus string `gorm:"size:20;default:none;index" json:"-"` // 机审状态：none/pass/review/block
 
 	LikeCount     int `gorm:"default:0" json:"like_count"`

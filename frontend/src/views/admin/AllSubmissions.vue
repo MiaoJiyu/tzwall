@@ -248,6 +248,11 @@ onMounted(load)
           <span v-for="(a, i) in viewItem.audit.filter((x: any) => x.status === 'block' && x.reason)" :key="'r' + i" class="text-[var(--danger)]">（理由：{{ a.reason }}）</span>
         </div>
 
+        <!-- AI 审核评论（仅管理员可见）：通过/拒绝原因 -->
+        <div v-if="viewItem.audit_comment" class="mt-3 rounded-lg bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--grape)]">
+          <span class="font-semibold">AI 审核意见：</span>{{ viewItem.audit_comment }}
+        </div>
+
         <p v-if="viewItem.content" class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-soft)]">{{ viewItem.content }}</p>
         <div v-if="viewItem.images?.length" class="mt-3 grid grid-cols-3 gap-2">
           <img v-for="im in viewItem.images" :key="im.id" :src="im.url" class="h-28 w-full rounded-lg object-cover" alt="" @error="$event.target.style.display = 'none'" />
