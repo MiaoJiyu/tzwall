@@ -20,14 +20,17 @@ func isWrite(method string) bool {
 	return false
 }
 
-// 互动路径（禁言时禁止）：投稿、评论、表态、上传
+// 互动路径（禁言时禁止）：投稿、评论、表态、上传、点歌、投票
 func isInteractivePath(path string) bool {
 	return path == "/api/submissions" ||
 		strings.HasSuffix(path, "/comments") && strings.HasPrefix(path, "/api/submissions") ||
 		strings.HasPrefix(path, "/api/comments") ||
 		path == "/api/reactions" ||
 		path == "/api/images" ||
-		path == "/api/reports"
+		path == "/api/reports" ||
+		path == "/api/songs" ||
+		path == "/api/polls" ||
+		path == "/api/polls/:id/vote"
 }
 
 // 强制改密期间仍允许的路径（改密、查看自身、退出、处罚状态）

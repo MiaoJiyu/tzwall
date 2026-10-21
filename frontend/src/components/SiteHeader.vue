@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Plus, Home, FileText, User as UserIcon, Shield, ShieldAlert, LogOut, Menu } from 'lucide-vue-next'
+import { Search, Plus, Home, FileText, User as UserIcon, Shield, ShieldAlert, LogOut, Menu, Music, BarChart3 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useMetaStore } from '@/stores/meta'
 import ThemeToggle from './ThemeToggle.vue'
@@ -46,6 +46,8 @@ function logout() {
 
       <nav class="ml-auto hidden items-center gap-1 md:flex">
         <button class="nav-btn" @click="go('/')"><Home :size="16" /> 首页</button>
+        <button class="nav-btn" @click="go('/songs')"><Music :size="16" /> 点歌</button>
+        <button class="nav-btn" @click="go('/polls')"><BarChart3 :size="16" /> 投票</button>
         <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/publish')"><Plus :size="16" /> 发布</button>
         <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/my')"><FileText :size="16" /> 我的</button>
         <ThemeToggle />
@@ -83,6 +85,8 @@ function logout() {
       />
       <div class="flex flex-col gap-1">
         <button class="nav-btn justify-start" @click="go('/')"><Home :size="16" /> 首页</button>
+        <button class="nav-btn justify-start" @click="go('/songs')"><Music :size="16" /> 点歌</button>
+        <button class="nav-btn justify-start" @click="go('/polls')"><BarChart3 :size="16" /> 投票</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/publish')"><Plus :size="16" /> 发布投稿</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/my')"><FileText :size="16" /> 我的投稿</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/profile')"><UserIcon :size="16" /> 账号安全</button>

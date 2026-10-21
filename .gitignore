@@ -120,3 +120,6 @@ desktop.ini
 # ---------- 文档构建 -----------
 docs/_build/
 site/
+
+# 云端仓库备份克隆（位于工作区内，避免误提交）
+tzwall-backup/

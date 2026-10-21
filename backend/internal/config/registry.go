@@ -61,6 +61,10 @@ var ConfigItems = []ConfigItem{
 	{Key: "comment_max_len", Group: GroupPost, Label: "评论字数上限", Type: TypeInt, Default: "500", Min: 10, Max: 5000},
 	{Key: "comment_max_depth", Group: GroupPost, Label: "评论嵌套层数", Type: TypeInt, Default: "3", Min: 1, Max: 10},
 	{Key: "tag_max_count", Group: GroupPost, Label: "投稿标签数量上限", Type: TypeInt, Default: "5", Min: 1, Max: 20},
+	{Key: "song_enabled", Group: GroupPost, Label: "启用点歌", Type: TypeBool, Default: "true", Desc: "关闭后禁止提交点歌，前台隐藏入口"},
+	{Key: "song_weekly_limit", Group: GroupPost, Label: "每人每周点歌上限", Type: TypeInt, Default: "1", Min: 0, Max: 100, Desc: "按自然周统计；0 表示不限"},
+	{Key: "poll_enabled", Group: GroupPost, Label: "启用投票", Type: TypeBool, Default: "true", Desc: "关闭后禁止发起投票与投票"},
+	{Key: "poll_max_options", Group: GroupPost, Label: "投票选项上限", Type: TypeInt, Default: "10", Min: 2, Max: 50},
 
 	// 图片
 	{Key: "image_max_size_mb", Group: GroupMedia, Label: "单张图片大小（MB）", Type: TypeInt, Default: "5", Min: 1, Max: 50},

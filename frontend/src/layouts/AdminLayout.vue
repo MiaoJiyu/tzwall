@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { LayoutDashboard, Users, FileCheck, Files, Tags, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity } from 'lucide-vue-next'
+import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity } from 'lucide-vue-next'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const auth = useAuthStore()
@@ -26,6 +26,8 @@ function logout() {
         <router-link to="/admin/submissions" class="admin-link"><FileCheck :size="18" /> 投稿审核</router-link>
         <router-link to="/admin/all-submissions" class="admin-link"><Files :size="18" /> 所有稿件</router-link>
         <router-link to="/admin/tags" class="admin-link"><Tags :size="18" /> 标签管理</router-link>
+        <router-link to="/admin/songs" class="admin-link"><Music :size="18" /> 点歌管理</router-link>
+        <router-link to="/admin/polls" class="admin-link"><BarChart3 :size="18" /> 投票管理</router-link>
         <router-link to="/admin/reports" class="admin-link"><Flag :size="18" /> 举报审核</router-link>
         <router-link to="/admin/punishments" class="admin-link"><Gavel :size="18" /> 处罚管理</router-link>
         <router-link v-if="auth.user?.role === 'super_admin'" to="/admin/permissions" class="admin-link">

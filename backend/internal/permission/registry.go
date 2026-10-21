@@ -161,6 +161,24 @@ var Endpoints = []Endpoint{
 	ep("POST", "/api/admin/submissions/:id/review", GroupContent, "审核投稿", false, model.RoleAdmin),
 	ep("POST", "/api/admin/submissions/:id/restore", GroupContent, "恢复投稿", false, model.RoleAdmin),
 
+	// 点歌
+	ep("GET", "/api/songs", GroupContent, "点歌列表", true),
+	ep("GET", "/api/songs/quota", GroupContent, "点歌配额", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/songs", GroupContent, "提交点歌", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/admin/songs", GroupContent, "点歌管理列表", false, model.RoleAdmin),
+	ep("POST", "/api/admin/songs/:id/status", GroupContent, "点歌状态流转", false, model.RoleAdmin),
+	ep("DELETE", "/api/admin/songs/:id", GroupContent, "删除点歌", false, model.RoleAdmin),
+
+	// 投票
+	ep("GET", "/api/polls", GroupContent, "投票列表", true),
+	ep("GET", "/api/polls/:id", GroupContent, "投票详情", true),
+	ep("POST", "/api/polls", GroupContent, "发起投票", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/polls/:id/vote", GroupContent, "参与投票", false, model.RoleUser, model.RoleAdmin),
+	ep("DELETE", "/api/polls/:id", GroupContent, "删除自己的投票", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/admin/polls", GroupContent, "投票管理列表", false, model.RoleAdmin),
+	ep("POST", "/api/admin/polls", GroupContent, "发起置顶投票", false, model.RoleAdmin),
+	ep("DELETE", "/api/admin/polls/:id", GroupContent, "强删投票", false, model.RoleAdmin),
+
 	// 审核回调（腾讯云数据万象）
 	ep("POST", "/api/moderation/callback", GroupMedia, "审核回调", true),
 }
@@ -179,11 +197,15 @@ var Pages = []Page{
 	{Key: "page:my", Path: "/my", Label: "我的投稿", Requires: []string{"GET /api/my/submissions"}},
 	{Key: "page:profile", Path: "/profile", Label: "账号安全", Requires: []string{"POST /api/auth/me"}},
 	{Key: "page:my.punishments", Path: "/my/punishments", Label: "我的权限变更记录", Requires: []string{"GET /api/punishments/mine"}},
+	{Key: "page:songs", Path: "/songs", Label: "点歌", Public: true},
+	{Key: "page:polls", Path: "/polls", Label: "投票", Public: true},
 	{Key: "page:admin.dashboard", Path: "/admin/dashboard", Label: "数据概览", Requires: []string{"GET /api/admin/dashboard"}},
 	{Key: "page:admin.users", Path: "/admin/users", Label: "用户管理", Requires: []string{"GET /api/admin/users"}},
 	{Key: "page:admin.submissions", Path: "/admin/submissions", Label: "投稿审核", Requires: []string{"GET /api/admin/submissions/pending"}},
 	{Key: "page:admin.allsubmissions", Path: "/admin/all-submissions", Label: "所有稿件", Requires: []string{"GET /api/admin/submissions/all"}},
 	{Key: "page:admin.tags", Path: "/admin/tags", Label: "标签管理", Requires: []string{"GET /api/admin/tags/pending"}},
+	{Key: "page:admin.songs", Path: "/admin/songs", Label: "点歌管理", Requires: []string{"GET /api/admin/songs"}},
+	{Key: "page:admin.polls", Path: "/admin/polls", Label: "投票管理", Requires: []string{"GET /api/admin/polls"}},
 	{Key: "page:admin.reports", Path: "/admin/reports", Label: "举报审核", Requires: []string{"GET /api/admin/reports"}},
 	{Key: "page:admin.punishments", Path: "/admin/punishments", Label: "处罚管理", Requires: []string{"GET /api/admin/punishments"}},
 	{Key: "page:admin.permissions", Path: "/admin/permissions", Label: "访问权限", Requires: []string{"GET /api/admin/permissions/matrix"}},

@@ -57,6 +57,8 @@ func SetupRouter(d Deps) *gin.Engine {
 	subSvc := service.NewSubmission(d.DB, d.Cfg, d.Storage, d.Moderation, d.Store, d.Mailer, d.Cache).
 		WithGovernance(words, d.AI)
 	commentSvc := service.NewComment(d.DB, d.Store, d.Moderation).WithWordFilter(words)
+	songSvc := service.NewSong(d.DB, d.Store).WithWordFilter(words)
+	pollSvc := service.NewPoll(d.DB, d.Store).WithWordFilter(words)
 	interSvc := service.NewInteraction(d.DB)
 	adminSvc := service.NewAdmin(d.DB, d.Store)
 	permSvc := service.NewPermission(d.DB, resolver)
@@ -64,6 +66,8 @@ func SetupRouter(d Deps) *gin.Engine {
 	authH := NewAuthHandler(authSvc)
 	subH := NewSubmissionHandler(subSvc)
 	commentH := NewCommentHandler(commentSvc)
+	songH := NewSongHandler(songSvc)
+	pollH := NewPollHandler(pollSvc)
 	interH := NewInteractionHandler(interSvc)
 	imgH := NewImageHandler(d.DB, d.Storage, d.Cfg, d.Cache, d.Store, d.Moderation)
 	vidH := NewVideoHandler(d.DB, d.Storage, d.Store)
@@ -118,6 +122,10 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/submissions/:id", perm.Public("GET /api/submissions/:id"), subH.Get)
 	r.GET("/api/tags", perm.Public("GET /api/tags"), subH.Tags)
 	r.GET("/api/submissions/:id/comments", perm.Public("GET /api/submissions/:id/comments"), commentH.List)
+	// 点歌/投票（公开浏览）
+	r.GET("/api/songs", perm.Public("GET /api/songs"), songH.List)
+	r.GET("/api/polls", perm.Public("GET /api/polls"), pollH.List)
+	r.GET("/api/polls/:id", perm.Public("GET /api/polls/:id"), pollH.Detail)
 
 	// 投稿/评论（私有）
 	r.POST("/api/submissions", perm.Require("POST /api/submissions"), subH.Create)
@@ -131,6 +139,13 @@ func SetupRouter(d Deps) *gin.Engine {
 
 	// 互动（私有）
 	r.POST("/api/reactions", perm.Require("POST /api/reactions"), interH.React)
+
+	// 点歌/投票（私有）
+	r.GET("/api/songs/quota", perm.Require("GET /api/songs/quota"), songH.Quota)
+	r.POST("/api/songs", perm.Require("POST /api/songs"), songH.Create)
+	r.POST("/api/polls", perm.Require("POST /api/polls"), pollH.Create)
+	r.POST("/api/polls/:id/vote", perm.Require("POST /api/polls/:id/vote"), pollH.Vote)
+	r.DELETE("/api/polls/:id", perm.Require("DELETE /api/polls/:id"), pollH.DeleteOwn)
 
 	// 图片（私有上传 / 公开代理）
 	r.POST("/api/images", perm.Require("POST /api/images"), imgH.Upload)
@@ -172,6 +187,14 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/admin/reports", perm.Require("GET /api/admin/reports"), reportH.AdminList)
 	r.POST("/api/admin/reports/:id/resolve", perm.Require("POST /api/admin/reports/:id/resolve"), reportH.Resolve)
 	r.GET("/api/admin/reports/:id/target", perm.Require("GET /api/admin/reports/:id/target"), reportH.TargetDetail)
+
+	// 点歌/投票管理（管理员）
+	r.GET("/api/admin/songs", perm.Require("GET /api/admin/songs"), songH.AdminList)
+	r.POST("/api/admin/songs/:id/status", perm.Require("POST /api/admin/songs/:id/status"), songH.SetStatus)
+	r.DELETE("/api/admin/songs/:id", perm.Require("DELETE /api/admin/songs/:id"), songH.AdminDelete)
+	r.GET("/api/admin/polls", perm.Require("GET /api/admin/polls"), pollH.AdminList)
+	r.POST("/api/admin/polls", perm.Require("POST /api/admin/polls"), pollH.AdminCreate)
+	r.DELETE("/api/admin/polls/:id", perm.Require("DELETE /api/admin/polls/:id"), pollH.AdminDelete)
 
 	// 处罚管理（管理员）
 	r.POST("/api/admin/punishments", perm.Require("POST /api/admin/punishments"), punH.AdminCreate)

@@ -19,6 +19,8 @@ const routes = [
       { path: 'profile', name: 'profile', component: () => import('@/views/Profile.vue'), meta: { requireAuth: true, page: 'page:profile' } },
       { path: 'agreement', name: 'agreement', component: () => import('@/views/Agreement.vue'), meta: { requireAuth: true, page: 'page:agreement' } },
       { path: 'my/punishments', name: 'my-punishments', component: () => import('@/views/MyPunishments.vue'), meta: { requireAuth: true, page: 'page:my.punishments' } },
+      { path: 'songs', name: 'songs', component: () => import('@/views/Songs.vue'), meta: { page: 'page:songs' } },
+      { path: 'polls', name: 'polls', component: () => import('@/views/Polls.vue'), meta: { page: 'page:polls' } },
     ],
   },
   {
@@ -32,6 +34,8 @@ const routes = [
       { path: 'submissions', name: 'admin-submissions', component: () => import('@/views/admin/Submissions.vue'), meta: { page: 'page:admin.submissions' } },
       { path: 'all-submissions', name: 'admin-all-submissions', component: () => import('@/views/admin/AllSubmissions.vue'), meta: { page: 'page:admin.allsubmissions' } },
       { path: 'tags', name: 'admin-tags', component: () => import('@/views/admin/Tags.vue'), meta: { page: 'page:admin.tags' } },
+      { path: 'songs', name: 'admin-songs', component: () => import('@/views/admin/Songs.vue'), meta: { page: 'page:admin.songs' } },
+      { path: 'polls', name: 'admin-polls', component: () => import('@/views/admin/Polls.vue'), meta: { page: 'page:admin.polls' } },
       { path: 'reports', name: 'admin-reports', component: () => import('@/views/admin/Reports.vue'), meta: { page: 'page:admin.reports' } },
       { path: 'punishments', name: 'admin-punishments', component: () => import('@/views/admin/Punishments.vue'), meta: { page: 'page:admin.punishments' } },
       { path: 'permissions', name: 'admin-permissions', component: () => import('@/views/admin/Permissions.vue'), meta: { page: 'page:admin.permissions' } },

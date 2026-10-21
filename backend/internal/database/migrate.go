@@ -34,6 +34,10 @@ func Migrate(db *gorm.DB, log *slog.Logger) error {
 		&model.Report{},
 		&model.PermissionGrant{},
 		&model.ModerationTask{},
+		&model.Song{},
+		&model.Poll{},
+		&model.PollOption{},
+		&model.PollVote{},
 	); err != nil {
 		return err
 	}

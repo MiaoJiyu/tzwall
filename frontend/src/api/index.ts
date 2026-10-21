@@ -66,6 +66,12 @@ export const adminApi = {
   restoreSubmission: (id: number) => http.post('/admin/submissions/' + id + '/restore'),
   removeComment: (id: number) => http.post('/admin/comments/' + id + '/remove'),
   restoreComment: (id: number) => http.post('/admin/comments/' + id + '/restore'),
+  songs: (params: any) => http.get('/admin/songs', { params }),
+  songStatus: (id: number, status: string) => http.post('/admin/songs/' + id + '/status', { status }),
+  deleteSong: (id: number) => http.delete('/admin/songs/' + id),
+  polls: (params: any) => http.get('/admin/polls', { params }),
+  createPoll: (p: any) => http.post('/admin/polls', p),
+  deletePoll: (id: number) => http.delete('/admin/polls/' + id),
 }
 
 export const metaApi = {
@@ -93,6 +99,20 @@ export const reportApi = {
   list: (params: any) => http.get('/admin/reports', { params }),
   resolve: (id: number, p: any) => http.post('/admin/reports/' + id + '/resolve', p),
   target: (id: number) => http.get('/admin/reports/' + id + '/target'),
+}
+
+export const songApi = {
+  list: (params: any) => http.get('/songs', { params }),
+  quota: () => http.get('/songs/quota'),
+  create: (p: any) => http.post('/songs', p),
+}
+
+export const pollApi = {
+  list: (params: any) => http.get('/polls', { params }),
+  detail: (id: number) => http.get('/polls/' + id),
+  create: (p: any) => http.post('/polls', p),
+  vote: (id: number, p: any) => http.post('/polls/' + id + '/vote', p),
+  remove: (id: number) => http.delete('/polls/' + id),
 }
 
 export const permissionApi = {
