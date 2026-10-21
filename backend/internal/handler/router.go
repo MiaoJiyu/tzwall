@@ -66,6 +66,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	commentH := NewCommentHandler(commentSvc)
 	interH := NewInteractionHandler(interSvc)
 	imgH := NewImageHandler(d.DB, d.Storage, d.Cfg, d.Cache, d.Store, d.Moderation)
+	vidH := NewVideoHandler(d.DB, d.Storage, d.Store)
 	// 图片链接签名密钥（由 AES 密钥派生）与有效期：生成带时效、防外链的后端图片链接。
 	signKey := sha256.Sum256(append(append([]byte{}, d.Cfg.AESKey...), []byte("|img-link-v1")...))
 	imgTTL := time.Duration(d.Store.Int("image_link_ttl_seconds", 600)) * time.Second
@@ -134,6 +135,10 @@ func SetupRouter(d Deps) *gin.Engine {
 	// 图片（私有上传 / 公开代理）
 	r.POST("/api/images", perm.Require("POST /api/images"), imgH.Upload)
 	r.GET("/api/images/:id", perm.Public("GET /api/images/:id"), rate.Limit("img", "image_proxy_rpm", 120), imgH.Proxy)
+
+	// 视频（私有上传 / 公开代理，支持 Range）
+	r.POST("/api/videos", perm.Require("POST /api/videos"), vidH.Upload)
+	r.GET("/api/videos/:id", perm.Public("GET /api/videos/:id"), rate.Limit("video", "video_proxy_rpm", 600), vidH.Proxy)
 
 	// 后台（私有，角色在 handler 内校验）
 	r.GET("/api/admin/dashboard", perm.Require("GET /api/admin/dashboard"), adminH.Dashboard)

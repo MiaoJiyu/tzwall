@@ -49,6 +49,7 @@ type Submission struct {
 	Content   string            `gorm:"type:text" json:"content"`
 	Tags      []*Tag            `gorm:"many2many:submission_tags" json:"tags"`
 	Images    []SubmissionImage `json:"images,omitempty"`
+	Videos    []SubmissionVideo `json:"videos,omitempty"`
 
 	Contact        string `gorm:"type:text" json:"contact,omitempty"`
 	ContactVisible string `gorm:"size:12;default:login" json:"contact_visible"`
@@ -66,6 +67,18 @@ type Submission struct {
 
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// SubmissionVideo 视频元数据（COS 私有存储），上传后由 COS 自动审核回调判定合规性。
+type SubmissionVideo struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	SubmissionID *uint     `gorm:"index" json:"submission_id"` // 上传时未关联投稿，允许为空
+	StorageKey   string    `gorm:"size:255" json:"-"`
+	Size         int64     `json:"size"`
+	ContentType  string    `gorm:"size:64" json:"content_type"`
+	AuditStatus  string    `gorm:"size:20;default:review" json:"audit_status"` // none/pass/review/block
+	IsPrivate    bool      `gorm:"default:false" json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // SubmissionImage 图片元数据（本地或 COS），落库便于代理与审核状态查询。

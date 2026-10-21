@@ -55,9 +55,9 @@ func (h *ModerationHandler) Callback(c *gin.Context) {
 	}
 
 	// 2) COS 内容审核模块回调（控制台/自定义风险库），按对象 Key 处置
-	if key, forbidden, ok := parseContentAudit(body); ok {
+	if key, forbidden, label, ok := parseContentAudit(body); ok {
 		if forbidden {
-			h.blockImageByKey(key)
+			h.blockMediaByKey(key, label)
 		}
 		response.OK(c, gin.H{"received": true})
 		return
@@ -93,21 +93,57 @@ func (h *ModerationHandler) applyTask(task *model.ModerationTask, v moderation.V
 		}
 	case strings.HasPrefix(task.BizID, "img-"):
 		key := strings.TrimPrefix(task.BizID, "img-")
-		updates := map[string]any{"audit_status": status}
 		if v.Blocked {
-			updates["is_private"] = true
+			// 违规图片：下架图片并立即驳回所属投稿
+			h.blockMediaByKey(key, v.Reason)
+			return
 		}
-		h.db.Model(&model.SubmissionImage{}).Where("storage_key = ?", key).Updates(updates)
+		h.db.Model(&model.SubmissionImage{}).Where("storage_key = ?", key).
+			Update("audit_status", status)
 	}
 }
 
-// blockImageByKey 将指定对象键的图片标记为违规私有（停止对外展示）。
-func (h *ModerationHandler) blockImageByKey(key string) {
+// blockMediaByKey 将指定对象键的图片或视频标记为违规私有（停止对外展示），
+// 并立即驳回其所属投稿（机审已确认违规，无需再等人审）。
+func (h *ModerationHandler) blockMediaByKey(key, label string) {
 	if key == "" {
 		return
 	}
-	h.db.Model(&model.SubmissionImage{}).Where("storage_key = ?", key).
-		Updates(map[string]any{"audit_status": model.ModerationBlock, "is_private": true})
+	_ = h.db.Transaction(func(tx *gorm.DB) error {
+		var img model.SubmissionImage
+		if err := tx.Where("storage_key = ?", key).First(&img).Error; err == nil {
+			tx.Model(&model.SubmissionImage{}).Where("id = ?", img.ID).
+				Updates(map[string]any{"audit_status": model.ModerationBlock, "is_private": true})
+			if img.SubmissionID != nil {
+				h.rejectSubmission(tx, *img.SubmissionID, "图片", label)
+			}
+			return nil
+		}
+		var vid model.SubmissionVideo
+		if err := tx.Where("storage_key = ?", key).First(&vid).Error; err == nil {
+			tx.Model(&model.SubmissionVideo{}).Where("id = ?", vid.ID).
+				Updates(map[string]any{"audit_status": model.ModerationBlock, "is_private": true})
+			if vid.SubmissionID != nil {
+				h.rejectSubmission(tx, *vid.SubmissionID, "视频", label)
+			}
+			return nil
+		}
+		// 未登记的对象（非本站上传）无需处置
+		return nil
+	})
+}
+
+// rejectSubmission 机审确认违规后立即驳回投稿，驳回原因对作者可见。
+func (h *ModerationHandler) rejectSubmission(tx *gorm.DB, submissionID uint, mediaKind, label string) {
+	note := "内容未通过审核：" + mediaKind + "涉嫌违规"
+	if l := strings.TrimSpace(label); l != "" {
+		note += "（" + l + "）"
+	}
+	tx.Model(&model.Submission{}).Where("id = ?", submissionID).Updates(map[string]any{
+		"status":       model.StatusRejected,
+		"audit_status": model.ModerationBlock,
+		"admin_note":   note,
+	})
 }
 
 // contentAudit 兼容数据万象「详细回调(DETAIL)」与「简洁回调(SIMPLE)」两种结构。
@@ -117,36 +153,40 @@ type contentAudit struct {
 		Object      string `json:"Object"`
 		Result      int    `json:"Result"`
 		ForbidState int    `json:"ForbidState"`
+		Label       string `json:"Label"`
 	} `json:"JobsDetail"`
 	Code int `json:"code"`
 	Data struct {
 		URL             string `json:"url"`
+		Object          string `json:"object"`
 		Result          int    `json:"result"`
 		ForbiddenStatus int    `json:"forbidden_status"`
+		Label           string `json:"label"`
 	} `json:"data"`
 }
 
-// parseContentAudit 解析内容审核回调，返回对象 Key 与是否违规/被冻结。
-func parseContentAudit(body []byte) (key string, forbidden bool, ok bool) {
+// parseContentAudit 解析内容审核回调，返回对象 Key、是否违规/被冻结及违规标签。
+func parseContentAudit(body []byte) (key string, forbidden bool, label string, ok bool) {
 	var ca contentAudit
 	if err := json.Unmarshal(body, &ca); err != nil {
-		return "", false, false
+		return "", false, "", false
 	}
 	// DETAIL：JobsDetail.Object（提交时用 Object 参数才有）
 	if ca.JobsDetail.Object != "" {
 		return ca.JobsDetail.Object,
 			ca.JobsDetail.Result == 1 || ca.JobsDetail.ForbidState >= 1,
+			ca.JobsDetail.Label,
 			true
 	}
-	// SIMPLE：data.url 需从 URL 解析 Key
-	if ca.Data.URL != "" {
-		k := keyFromURL(ca.Data.URL)
-		if k == "" {
-			return "", false, false
-		}
-		return k, ca.Data.Result == 1 || ca.Data.ForbiddenStatus >= 1, true
+	// SIMPLE：优先 data.object，缺失时从 data.url 解析 Key
+	k := ca.Data.Object
+	if k == "" && ca.Data.URL != "" {
+		k = keyFromURL(ca.Data.URL)
 	}
-	return "", false, false
+	if k == "" {
+		return "", false, "", false
+	}
+	return k, ca.Data.Result == 1 || ca.Data.ForbiddenStatus >= 1, ca.Data.Label, true
 }
 
 // keyFromURL 从 COS 对象 URL 中剥离域名得到对象 Key。

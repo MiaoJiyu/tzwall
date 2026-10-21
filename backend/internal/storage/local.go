@@ -38,6 +38,40 @@ func (s *localStorage) Get(ctx context.Context, key string) (io.ReadCloser, erro
 	return os.Open(filepath.Join(s.dir, filepath.Base(key)))
 }
 
+// limitedReadCloser 限制读取长度并在关闭时释放文件句柄。
+type limitedReadCloser struct {
+	io.Reader
+	c io.Closer
+}
+
+func (l *limitedReadCloser) Close() error { return l.c.Close() }
+
+// GetRange 本地文件分段读取，返回流与文件总大小。
+func (s *localStorage) GetRange(ctx context.Context, key string, start, end int64) (io.ReadCloser, int64, error) {
+	f, err := os.Open(filepath.Join(s.dir, filepath.Base(key)))
+	if err != nil {
+		return nil, 0, ErrObjectUnavailable
+	}
+	st, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, err
+	}
+	total := st.Size()
+	if start < 0 || start >= total {
+		f.Close()
+		return nil, total, ErrObjectUnavailable
+	}
+	if end < 0 || end >= total {
+		end = total - 1
+	}
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		f.Close()
+		return nil, total, err
+	}
+	return &limitedReadCloser{Reader: io.LimitReader(f, end-start+1), c: f}, total, nil
+}
+
 // ProcessedGet 本地存储不支持图片处理，忽略规则返回原图。
 func (s *localStorage) ProcessedGet(ctx context.Context, key, ciRule string) (io.ReadCloser, error) {
 	return s.Get(ctx, key)

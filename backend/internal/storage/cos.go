@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +71,41 @@ func (s *cosStorage) Get(ctx context.Context, key string) (io.ReadCloser, error)
 		return nil, ErrObjectUnavailable
 	}
 	return nil, err
+}
+
+// GetRange 分段读取对象（视频拖动播放），返回流与对象总大小。
+func (s *cosStorage) GetRange(ctx context.Context, key string, start, end int64) (io.ReadCloser, int64, error) {
+	rng := fmt.Sprintf("bytes=%d-", start)
+	if end >= 0 {
+		rng = fmt.Sprintf("bytes=%d-%d", start, end)
+	}
+	resp, err := s.client.Object.Get(ctx, key, &cos.ObjectGetOptions{Range: rng})
+	if err == nil {
+		total := totalFromContentRange(resp.Header.Get("Content-Range"))
+		if total <= 0 {
+			total = end + 1
+		}
+		return resp.Body, total, nil
+	}
+	if s.local != nil {
+		if rc, total, lerr := s.local.GetRange(ctx, key, start, end); lerr == nil {
+			return rc, total, nil
+		}
+	}
+	if st := cosStatusCode(err); st == http.StatusForbidden || st == http.StatusNotFound {
+		return nil, 0, ErrObjectUnavailable
+	}
+	return nil, 0, err
+}
+
+// totalFromContentRange 从 "bytes 0-1023/4096" 中解析对象总大小。
+func totalFromContentRange(cr string) int64 {
+	i := strings.LastIndex(cr, "/")
+	if i < 0 {
+		return 0
+	}
+	n, _ := strconv.ParseInt(strings.TrimSpace(cr[i+1:]), 10, 64)
+	return n
 }
 
 // ProcessedGet 带数据处理规则取流（如盲水印）。签名传输会自动将查询参数纳入签名。

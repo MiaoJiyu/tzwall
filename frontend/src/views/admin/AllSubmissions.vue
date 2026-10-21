@@ -171,7 +171,7 @@ onMounted(load)
           >
             <td class="px-4 py-3 text-[var(--text-soft)]">#{{ s.id }}</td>
             <td class="max-w-[240px] px-4 py-3">
-              <div class="truncate font-medium text-[var(--grape)]">{{ s.title || '(无标题)' }}</div>
+              <div class="truncate font-medium text-[var(--grape)]">{{ s.title || '(无标题)' }} <span v-if="s.videos?.length" class="ml-1 text-[var(--danger)]">🎬{{ s.videos.length }}</span></div>
               <div class="truncate text-xs text-[var(--text-soft)]">{{ s.content }}</div>
             </td>
             <td class="px-4 py-3">
@@ -251,6 +251,9 @@ onMounted(load)
         <p v-if="viewItem.content" class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-soft)]">{{ viewItem.content }}</p>
         <div v-if="viewItem.images?.length" class="mt-3 grid grid-cols-3 gap-2">
           <img v-for="im in viewItem.images" :key="im.id" :src="im.url" class="h-28 w-full rounded-lg object-cover" alt="" @error="$event.target.style.display = 'none'" />
+        </div>
+        <div v-if="viewItem.videos?.length" class="mt-3 grid grid-cols-2 gap-2">
+          <video v-for="v in viewItem.videos" :key="v.id" :src="v.url" controls preload="metadata" class="h-40 w-full rounded-lg object-cover bg-black"></video>
         </div>
         <div v-if="viewItem.tags?.length" class="mt-2 flex flex-wrap gap-1.5">
           <span v-for="t in viewItem.tags" :key="t.id" class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">#{{ t.name }}</span>

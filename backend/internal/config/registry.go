@@ -70,6 +70,11 @@ var ConfigItems = []ConfigItem{
 	{Key: "image_link_ttl_seconds", Group: GroupMedia, Label: "图片链接有效期（秒）", Type: TypeInt, Default: "600", Min: 30, Max: 86400, Desc: "后端签发的图片链接有效期，过期需刷新页面重新获取"},
 	{Key: "image_blind_watermark", Group: GroupMedia, Label: "图片盲水印", Type: TypeBool, Default: "true", Desc: "开启后每张图片经数据万象写入盲水印（用户名+IP+请求时间），需启用 COS 图片处理"},
 
+	// 视频
+	{Key: "video_max_size_mb", Group: GroupMedia, Label: "单个视频大小（MB）", Type: TypeInt, Default: "100", Min: 1, Max: 1024},
+	{Key: "video_max_count", Group: GroupMedia, Label: "投稿视频数量上限", Type: TypeInt, Default: "3", Min: 1, Max: 10},
+	{Key: "video_formats", Group: GroupMedia, Label: "允许的视频格式", Type: TypeString, Default: "mp4,mov,webm,m4v", Desc: "逗号分隔，不含点号"},
+
 	// 邮件（后台配置优先于 .env）
 	{Key: "smtp_host", Group: GroupAccount, Label: "SMTP 服务器", Type: TypeString, Default: "", Desc: "留空则使用 .env 中的配置；均未配置时注册免激活"},
 	{Key: "smtp_port", Group: GroupAccount, Label: "SMTP 端口", Type: TypeInt, Default: "465", Min: 1, Max: 65535},

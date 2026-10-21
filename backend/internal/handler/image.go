@@ -230,14 +230,23 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 	c.Data(http.StatusOK, contentTypeOrDefault(im.ContentType), out)
 }
 
-// markBlocked 将图片标记为违规并置私有（幂等）。
+// markBlocked 将图片标记为违规并置私有（幂等），同时立即驳回该图片所属投稿。
 func (h *ImageHandler) markBlocked(im *model.SubmissionImage) {
 	if err := h.db.Model(&model.SubmissionImage{}).Where("id = ?", im.ID).
 		Updates(map[string]any{"audit_status": model.ModerationBlock, "is_private": true}).Error; err != nil {
 		slog.Default().Warn("标记图片违规失败", "id", im.ID, "err", err.Error())
 		return
 	}
-	slog.Default().Info("图片判定违规，已下架", "id", im.ID, "key", im.StorageKey)
+	if im.SubmissionID != nil {
+		if err := h.db.Model(&model.Submission{}).Where("id = ?", *im.SubmissionID).Updates(map[string]any{
+			"status":       model.StatusRejected,
+			"audit_status": model.ModerationBlock,
+			"admin_note":   "内容未通过审核：图片涉嫌违规",
+		}).Error; err != nil {
+			slog.Default().Warn("驳回投稿失败", "submission", *im.SubmissionID, "err", err.Error())
+		}
+	}
+	slog.Default().Info("图片判定违规，已下架并驳回投稿", "id", im.ID, "key", im.StorageKey, "submission", im.SubmissionID)
 }
 
 // dropImageCache 清除图片内容与可用性标记缓存。

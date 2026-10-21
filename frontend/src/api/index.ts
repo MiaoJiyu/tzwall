@@ -29,6 +29,12 @@ export const submissionApi = {
     return http.post('/images', fd)
   },
   imageUrl: (id: number) => '/api/images/' + id,
+  uploadVideo: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return http.post('/videos', fd)
+  },
+  videoUrl: (id: number) => '/api/videos/' + id,
 }
 
 export const commentApi = {

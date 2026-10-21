@@ -18,6 +18,8 @@ type Storage interface {
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
 	// ProcessedGet 带数据处理规则取流（如 COS 图片盲水印），本地存储忽略规则返回原图。
 	ProcessedGet(ctx context.Context, key, ciRule string) (io.ReadCloser, error)
+	// GetRange 读取对象 [start, end] 字节区间（end < 0 表示到末尾），返回流与对象总大小。
+	GetRange(ctx context.Context, key string, start, end int64) (io.ReadCloser, int64, error)
 	// Head 轻量探测对象是否存在且可读；不可访问时返回 ErrObjectUnavailable。
 	Head(ctx context.Context, key string) error
 	SetPrivate(ctx context.Context, key string) error // 变更/删除后将对象设为私有读写

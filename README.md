@@ -94,7 +94,8 @@ sudo ln -s /etc/nginx/sites-available/tzwall /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-后端 `SERVER_PORT` 建议设为 `8080`，由 Nginx 监听 `80` 回源；EdgeOne 在边缘终结 SSL。
+当前生产部署：后端 `SERVER_HOST=127.0.0.1`、`SERVER_PORT=10002`，Nginx 监听 `10001` 并回源；EdgeOne 在边缘终结 SSL 后回源到 `10001`。
+链路：后端 → Nginx(10001) → EdgeOne → 公网。
 
 ## 四、备份与运维
 

@@ -205,7 +205,7 @@ func (s *AdminService) PendingSubmissions(page, pageSize int) ([]model.Submissio
 	var total int64
 	q.Count(&total)
 	var subs []model.Submission
-	q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").
+	q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").
 		Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at ASC").Find(&subs)
 	return subs, total, nil
 }
@@ -229,7 +229,7 @@ func (s *AdminService) AllSubmissions(page, pageSize int, status, keyword string
 	var total int64
 	q.Count(&total)
 	var subs []model.Submission
-	q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").
+	q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").
 		Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&subs)
 	return subs, total, nil
 }

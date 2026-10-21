@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { submissionApi } from '@/api'
 import TagPicker from '@/components/TagPicker.vue'
 import ImageUploader from '@/components/ImageUploader.vue'
+import VideoUploader from '@/components/VideoUploader.vue'
 
 const router = useRouter()
 const title = ref('')
@@ -12,6 +13,7 @@ const content = ref('')
 const selectedTagIds = ref<number[]>([])
 const customTagNames = ref<string[]>([])
 const images = ref<any[]>([])
+const videos = ref<any[]>([])
 const anonymous = ref(false)
 const contactVisible = ref('login')
 const contact = ref('')
@@ -32,8 +34,8 @@ async function submit() {
     ElMessage.warning('请填写标题')
     return
   }
-  if (!content.value.trim() && images.value.length === 0) {
-    ElMessage.warning('请填写内容或上传图片')
+  if (!content.value.trim() && images.value.length === 0 && videos.value.length === 0) {
+    ElMessage.warning('请填写内容或上传图片/视频')
     return
   }
   loading.value = true
@@ -44,6 +46,7 @@ async function submit() {
       tag_ids: selectedTagIds.value,
       tag_names: customTagNames.value,
       image_ids: images.value.map((i) => i.id),
+      video_ids: videos.value.map((v) => v.id),
       anonymous: anonymous.value,
       contact: contact.value,
       contact_visible: contactVisible.value,
@@ -82,6 +85,11 @@ async function submit() {
       <div>
         <label class="mb-1 block text-sm font-medium">图片（可选）</label>
         <ImageUploader v-model="images" :max="9" />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">视频（可选，上传后由腾讯云自动审核，不违规进入人工审核）</label>
+        <VideoUploader v-model="videos" :max="3" />
       </div>
 
       <div>

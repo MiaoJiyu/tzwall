@@ -66,6 +66,9 @@ onMounted(load)
         <div v-if="s.images?.length" class="mt-3 grid grid-cols-3 gap-2">
           <img v-for="im in s.images" :key="im.id" :src="im.url" class="h-24 w-full rounded-lg object-cover" alt="" />
         </div>
+        <div v-if="s.videos?.length" class="mt-3 grid grid-cols-3 gap-2">
+          <video v-for="v in s.videos" :key="v.id" :src="v.url" controls preload="metadata" class="h-24 w-full rounded-lg object-cover bg-black"></video>
+        </div>
         <div v-if="s.tags?.length" class="mt-2 flex flex-wrap gap-1.5">
           <span v-for="t in s.tags" :key="t.id" class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">#{{ t.name }}</span>
         </div>

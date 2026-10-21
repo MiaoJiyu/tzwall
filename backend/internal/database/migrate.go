@@ -19,6 +19,7 @@ func Migrate(db *gorm.DB, log *slog.Logger) error {
 		&model.Submission{},
 		&model.Tag{},
 		&model.SubmissionImage{},
+		&model.SubmissionVideo{},
 		&model.SubmissionRevision{},
 		&model.Comment{},
 		&model.Reaction{},

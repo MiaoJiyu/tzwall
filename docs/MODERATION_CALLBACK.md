@@ -14,6 +14,8 @@
 
 > 本指南重点是 **B**：即使站点没有主动调用审核，控制台自动审核命中后也能让网站下架图片。
 
+**视频同理**：上传到 COS 的视频走链路 B 的「视频审核」自动审核配置，回调携带视频对象的 `Object`，本站按 `storage_key` 在 `submission_videos` 中标记违规私有并立即驳回所属投稿；未命中违规的视频进入人工审核（链路 A 不涉及视频）。回调地址、令牌留空等要求与图片完全一致。
+
 ---
 
 ## 二、回调地址
@@ -73,7 +75,7 @@ POST https://<你的站点域名>/api/moderation/callback
 
 - **对象 Key**：`JobsDetail.Object`
 - **违规判定**：`Result = 1`（确认违规）或 `ForbidState ≥ 1`（1 已冻结 / 2 已转移）
-- 本站动作：按 `storage_key = Object` 将该图片置为 `audit_status=block`、`is_private=true`。
+- 本站动作：按 `storage_key = Object` 将该图片置为 `audit_status=block`、`is_private=true`，并**立即驳回该图片所属投稿**（`status=rejected`、`audit_status=block`，驳回原因写入 `admin_note`，对作者可见）。
 
 ### 2. 简洁回调（Simple）
 
@@ -97,13 +99,17 @@ POST https://<你的站点域名>/api/moderation/callback
 
 ```
 收到回调
-  ├─ 若是我方提交的 CI 任务（有 JobId 且命中 moderation_tasks）→ 更新任务状态，联动投稿/图片
+  ├─ 若是我方提交的 CI 任务（有 JobId 且命中 moderation_tasks）→ 更新任务状态，命中违规时同样驳回投稿
   └─ 否则按「内容审核回调」解析 Object
         ├─ 命中违规 → submission_images(audit_status=block, is_private=true)
+        │             + submissions(status=rejected, audit_status=block, admin_note=驳回原因)
         └─ 未命中 → 仅确认接收
 ```
 
+> 时序注意：图片审核回调可能**早于投稿创建**（此时图片尚未关联投稿，无法直接驳回投稿）。因此创建投稿关联图片时会再次校验图片状态：只要存在 `audit_status=block` 的图片，投稿立即置为 `rejected`，避免漏判。
+
 标记 `block/private` 后：
+- 所属投稿立即被驳回（`status=rejected`），从公开列表/详情中消失；
 - 稿件接口不再返回该图（查询统一过滤 `audit_status<>'block' AND is_private=false`）；
 - 图片代理 `/api/images/:id` 直接返回 **403**；
 - 前端 `<img>` 加载失败自动隐藏。
@@ -115,7 +121,7 @@ POST https://<你的站点域名>/api/moderation/callback
 为避免"没配回调 / 回调丢失"导致违规图继续展示，图片代理内置**访问探测**：
 
 - 每个图片最多每 **60 秒**做一次 `HeadObject`；
-- 若返回 **403**（私有读冻结）或 **404**（转移备份目录）→ 判定违规，标记 `block/private` 并 403，前端立即不再显示。
+- 若返回 **403**（私有读冻结）或 **404**（转移备份目录）→ 判定违规，标记 `block/private`、驳回所属投稿并 403，前端立即不再显示。
 
 > 该兜底与回调互补：回调负责"及时、精准"；探测负责"兜底、无需配置"。
 

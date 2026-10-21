@@ -107,7 +107,7 @@ func Run() error {
 	})
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.ServerPort,
+		Addr:    cfg.ServerHost + ":" + cfg.ServerPort,
 		Handler: r,
 	}
 

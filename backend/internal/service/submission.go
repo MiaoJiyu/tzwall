@@ -49,6 +49,7 @@ type CreateSubmissionReq struct {
 	TagIDs         []uint   `json:"tag_ids"`
 	TagNames       []string `json:"tag_names"`
 	ImageIDs       []uint   `json:"image_ids"`
+	VideoIDs       []uint   `json:"video_ids"`
 	Contact        string   `json:"contact"`
 	ContactVisible string   `json:"contact_visible"`
 	Anonymous      bool     `json:"anonymous"`
@@ -59,7 +60,7 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 	if strings.TrimSpace(req.Title) == "" {
 		return nil, errs.New(errs.ErrValidation, nil)
 	}
-	if strings.TrimSpace(req.Content) == "" && len(req.ImageIDs) == 0 {
+	if strings.TrimSpace(req.Content) == "" && len(req.ImageIDs) == 0 && len(req.VideoIDs) == 0 {
 		return nil, errs.New(errs.ErrValidation, nil)
 	}
 	maxTags := s.store.Int("tag_max_count", 5)
@@ -69,6 +70,10 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 	maxImg := s.store.Int("image_max_count", 9)
 	if len(req.ImageIDs) > maxImg {
 		return nil, errs.New(errs.ErrImageTooLarge, nil)
+	}
+	maxVid := s.store.Int("video_max_count", 3)
+	if len(req.VideoIDs) > maxVid {
+		return nil, errs.New(errs.ErrValidation, nil)
 	}
 	if req.ContactVisible != model.ContactAll && req.ContactVisible != model.ContactLogin {
 		req.ContactVisible = model.ContactLogin
@@ -132,20 +137,66 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 	}
 	s.db.Model(sub).Update("audit_status", auditStatus)
 
-	// 关联已上传图片；含未通过审核的图片一律转人工
+	// 关联已上传图片：命中违规图片立即驳回（含图片先被回调判违规、投稿后才创建的情况）；
+	// 其余未通过审核的图片一律转人工。
 	if len(req.ImageIDs) > 0 {
 		s.db.Model(&model.SubmissionImage{}).Where("id IN ? AND submission_id IS NULL", req.ImageIDs).
 			Update("submission_id", sub.ID)
+		var blocked int64
+		s.db.Model(&model.SubmissionImage{}).
+			Where("submission_id = ? AND audit_status = ?", sub.ID, model.ModerationBlock).Count(&blocked)
 		var bad int64
 		s.db.Model(&model.SubmissionImage{}).
 			Where("submission_id = ? AND audit_status <> ?", sub.ID, model.ModerationPass).Count(&bad)
-		if bad > 0 && sub.Status == model.StatusApproved {
+		switch {
+		case blocked > 0:
+			note := "内容未通过审核：图片涉嫌违规"
+			s.db.Model(sub).Updates(map[string]any{
+				"status":       model.StatusRejected,
+				"audit_status": model.ModerationBlock,
+				"admin_note":   note,
+			})
+			sub.Status = model.StatusRejected
+			sub.AuditStatus = model.ModerationBlock
+			sub.AdminNote = note
+		case bad > 0 && sub.Status == model.StatusApproved:
 			s.db.Model(sub).Update("status", model.StatusPending)
 			sub.Status = model.StatusPending
 		}
 	}
-	// 回读关联，保证发布响应包含标签与图片
-	s.db.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).First(sub, sub.ID)
+
+	// 关联已上传视频：命中违规视频立即驳回；其余视频进入人工审核（pending）。
+	if len(req.VideoIDs) > 0 {
+		s.db.Model(&model.SubmissionVideo{}).Where("id IN ? AND submission_id IS NULL", req.VideoIDs).
+			Update("submission_id", sub.ID)
+		var blocked int64
+		s.db.Model(&model.SubmissionVideo{}).
+			Where("submission_id = ? AND audit_status = ?", sub.ID, model.ModerationBlock).Count(&blocked)
+		var bad int64
+		s.db.Model(&model.SubmissionVideo{}).
+			Where("submission_id = ? AND audit_status <> ?", sub.ID, model.ModerationPass).Count(&bad)
+		switch {
+		case blocked > 0:
+			note := "内容未通过审核：视频涉嫌违规"
+			s.db.Model(sub).Updates(map[string]any{
+				"status":       model.StatusRejected,
+				"audit_status": model.ModerationBlock,
+				"admin_note":   note,
+			})
+			sub.Status = model.StatusRejected
+			sub.AuditStatus = model.ModerationBlock
+			sub.AdminNote = note
+		case bad > 0 && sub.Status == model.StatusApproved:
+			s.db.Model(sub).Update("status", model.StatusPending)
+			sub.Status = model.StatusPending
+		}
+	}
+
+	// 回读关联，保证发布响应包含标签、图片与视频
+	s.db.Preload("Tags").
+		Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
+		Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
+		First(sub, sub.ID)
 	return sub, nil
 }
 
@@ -255,11 +306,16 @@ func (s *SubmissionService) Delete(user *model.User, id uint) error {
 	if sub.UserID != user.ID {
 		return errs.New(errs.CodeForbidden, nil)
 	}
-	// 图片设为私有
+	// 图片、视频设为私有
 	var imgs []model.SubmissionImage
 	s.db.Where("submission_id = ?", id).Find(&imgs)
 	for _, im := range imgs {
 		s.storage.SetPrivate(nil, im.StorageKey)
+	}
+	var vids []model.SubmissionVideo
+	s.db.Where("submission_id = ?", id).Find(&vids)
+	for _, vd := range vids {
+		s.storage.SetPrivate(nil, vd.StorageKey)
 	}
 	s.db.Delete(&sub)
 	return nil
@@ -294,7 +350,7 @@ func (s *SubmissionService) List(p ListParams) ([]model.Submission, int64, error
 	var total int64
 	q.Count(&total)
 
-	q = q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").Offset((p.Page - 1) * p.PageSize).Limit(p.PageSize)
+	q = q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").Offset((p.Page - 1) * p.PageSize).Limit(p.PageSize)
 	if p.Sort == "hot" {
 		gravity := s.store.Int("hot_decay_gravity", 2)
 		q = q.Order(fmt.Sprintf(
@@ -312,7 +368,7 @@ func (s *SubmissionService) List(p ListParams) ([]model.Submission, int64, error
 // ListMine 我的投稿（含所有状态）。
 func (s *SubmissionService) ListMine(user *model.User) ([]model.Submission, error) {
 	var subs []model.Submission
-	if err := s.db.Where("user_id = ?", user.ID).Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
+	if err := s.db.Where("user_id = ?", user.ID).Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
 		Order("created_at DESC").Find(&subs).Error; err != nil {
 		return nil, errs.New(errs.CodeInternal, err)
 	}
@@ -322,7 +378,7 @@ func (s *SubmissionService) ListMine(user *model.User) ([]model.Submission, erro
 // GetVisible 按可见性取详情：approved 公开；其余仅作者/管理员。
 func (s *SubmissionService) GetVisible(id uint, viewer *model.User) (*model.Submission, error) {
 	var sub model.Submission
-	if err := s.db.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").First(&sub, id).Error; err != nil {
+	if err := s.db.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").First(&sub, id).Error; err != nil {
 		return nil, errs.New(errs.ErrValidation, nil)
 	}
 	if sub.Status == model.StatusApproved {

@@ -55,3 +55,33 @@ func verifyImageURL(id uint, uid int, e, s string) bool {
 func imageURL(im model.SubmissionImage, uid int) string {
 	return signedImageURL(im.ID, uid)
 }
+
+// videoSig 计算视频链接签名（与图片区分命名空间，避免 ID 撞车）。
+func videoSig(id uint, uid int, exp int64) string {
+	mac := hmac.New(sha256.New, imgSign.key)
+	fmt.Fprintf(mac, "vid:%d:%d:%d", id, uid, exp)
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// signedVideoURL 生成带时效、防盗并与浏览者绑定的视频链接。
+func signedVideoURL(id uint, uid int) string {
+	exp := time.Now().Add(imgSign.ttl).Unix()
+	return fmt.Sprintf("/api/videos/%d?e=%d&u=%d&s=%s", id, exp, uid, videoSig(id, uid, exp))
+}
+
+// verifyVideoURL 校验视频链接签名与时效。
+func verifyVideoURL(id uint, uid int, e, s string) bool {
+	if s == "" {
+		return false
+	}
+	exp, err := strconv.ParseInt(e, 10, 64)
+	if err != nil || exp < time.Now().Unix() {
+		return false
+	}
+	return hmac.Equal([]byte(videoSig(id, uid, exp)), []byte(s))
+}
+
+// videoURL 返回视频对外地址（签名时效链接）。
+func videoURL(v model.SubmissionVideo, uid int) string {
+	return signedVideoURL(v.ID, uid)
+}

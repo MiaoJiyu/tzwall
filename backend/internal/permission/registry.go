@@ -93,6 +93,8 @@ var Endpoints = []Endpoint{
 	// 存储
 	ep("POST", "/api/images", GroupMedia, "上传图片", false, model.RoleUser, model.RoleAdmin),
 	ep("GET", "/api/images/:id", GroupMedia, "图片代理", true),
+	ep("POST", "/api/videos", GroupMedia, "上传视频", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/videos/:id", GroupMedia, "视频代理", true),
 
 	// 治理：处罚
 	ep("GET", "/api/punishments/status", GroupGovernance, "处罚状态", false, model.RoleUser, model.RoleAdmin),

@@ -11,6 +11,8 @@ import (
 
 // Config 聚合所有运行时配置。敏感密钥仅来自 .env，绝不回显明文。
 type Config struct {
+	// ServerHost 监听地址，默认空表示所有网卡；配合 Nginx 反代时建议 127.0.0.1
+	ServerHost string
 	ServerPort string
 
 	DBHost     string
@@ -73,6 +75,7 @@ func Load() *Config {
 	_ = godotenv.Load()
 
 	c := &Config{}
+	c.ServerHost = getenv("SERVER_HOST", "")
 	c.ServerPort = getenv("SERVER_PORT", "80")
 
 	c.DBHost = getenv("DB_HOST", "127.0.0.1")

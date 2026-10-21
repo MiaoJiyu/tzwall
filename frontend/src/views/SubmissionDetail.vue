@@ -137,6 +137,10 @@ onMounted(() => {
         <img v-for="im in detail.images" :key="im.id" :src="im.url" class="h-40 w-full cursor-zoom-in rounded-lg object-cover" @click="previewImg = im.url" alt="" @error="$event.target.style.display = 'none'" />
       </div>
 
+      <div v-if="detail.videos?.length" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <video v-for="v in detail.videos" :key="v.id" :src="v.url" controls preload="metadata" class="w-full rounded-lg bg-black" @error="$event.target.style.display = 'none'"></video>
+      </div>
+
       <div v-if="detail.tags?.length" class="mt-4 flex flex-wrap gap-1.5">
         <span v-for="t in detail.tags" :key="t.id" class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">#{{ t.name }}</span>
       </div>

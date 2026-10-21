@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { Heart, MessageCircle, Eye, Image as ImageIcon, Ban, Gavel } from 'lucide-vue-next'
+import { Heart, MessageCircle, Eye, Image as ImageIcon, Video as VideoIcon, Ban, Gavel } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ item: any }>()
@@ -32,6 +32,15 @@ function open() {
       />
       <div v-if="item.images.length > 3" class="relative flex h-24 items-center justify-center rounded-lg bg-[var(--surface-2)] text-sm text-[var(--text-soft)]">
         <ImageIcon :size="18" /> +{{ item.images.length - 3 }}
+      </div>
+    </div>
+    <div v-if="item.videos?.length" class="mt-3 grid grid-cols-3 gap-2">
+      <div v-for="v in item.videos.slice(0, 3)" :key="v.id" class="relative h-24 overflow-hidden rounded-lg bg-black">
+        <video :src="v.url" class="h-full w-full object-cover" preload="metadata"></video>
+        <div class="absolute inset-0 flex items-center justify-center"><VideoIcon :size="20" class="text-white/80" /></div>
+      </div>
+      <div v-if="item.videos.length > 3" class="relative flex h-24 items-center justify-center rounded-lg bg-[var(--surface-2)] text-sm text-[var(--text-soft)]">
+        <VideoIcon :size="18" /> +{{ item.videos.length - 3 }}
       </div>
     </div>
     <div v-if="item.tags?.length" class="mt-3 flex flex-wrap gap-1.5">

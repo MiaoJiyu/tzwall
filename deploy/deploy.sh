@@ -32,6 +32,6 @@ echo "==> 重启后端"
 
 echo "==> 健康检查"
 sleep 2
-curl -s http://127.0.0.1/api/health || true
+curl -s http://127.0.0.1:10001/api/health || true
 echo
 echo "部署完成"

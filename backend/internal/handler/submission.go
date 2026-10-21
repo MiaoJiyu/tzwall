@@ -63,6 +63,15 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 	for _, t := range sub.Tags {
 		tags = append(tags, gin.H{"id": t.ID, "name": t.Name})
 	}
+	vids := make([]gin.H, 0, len(sub.Videos))
+	for _, vd := range sub.Videos {
+		vids = append(vids, gin.H{
+			"id":           vd.ID,
+			"url":          videoURL(vd, viewerUID),
+			"content_type": vd.ContentType,
+			"size":         vd.Size,
+		})
+	}
 
 	v := gin.H{
 		"id":              sub.ID,
@@ -81,6 +90,7 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 		"revision_count":  sub.RevisionCount,
 		"tags":            tags,
 		"images":          imgs,
+		"videos":          vids,
 		"created_at":      sub.CreatedAt,
 		"user_id":         sub.UserID,
 	}

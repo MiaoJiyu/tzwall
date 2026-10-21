@@ -176,8 +176,14 @@ func (s *OpsService) fillCOS(o *OpsOverview) {
 	}
 	s.db.Model(&model.SubmissionImage{}).
 		Select("count(*) as count, coalesce(sum(size),0) as bytes").Scan(&agg)
-	o.COS.Objects = agg.Count
-	o.COS.Bytes = agg.Bytes
+	var vAgg struct {
+		Count int64
+		Bytes int64
+	}
+	s.db.Model(&model.SubmissionVideo{}).
+		Select("count(*) as count, coalesce(sum(size),0) as bytes").Scan(&vAgg)
+	o.COS.Objects = agg.Count + vAgg.Count
+	o.COS.Bytes = agg.Bytes + vAgg.Bytes
 	o.COS.AlertGB = int64(s.store.Int("ops_cos_alert_gb", 50))
 	o.COS.Exceeded = o.COS.Bytes > o.COS.AlertGB*(1<<30)
 }
