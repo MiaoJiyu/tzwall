@@ -62,7 +62,7 @@ onMounted(load)
       </select>
       <div class="relative flex-1">
         <Search :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-        <input v-model="filters.keyword" class="input-box pl-9" placeholder="搜索歌名/歌手/留言" @keyup.enter="search" />
+        <input v-model="filters.keyword" class="input-box input-box--with-icon" placeholder="搜索歌名/歌手/留言" @keyup.enter="search" />
       </div>
       <button class="btn-grape rounded-full px-5 py-2 text-sm" @click="search">搜索</button>
     </div>
@@ -140,5 +140,8 @@ onMounted(load)
 }
 .input-box:focus {
   border-color: var(--grape);
+}
+.input-box--with-icon {
+  padding-left: 36px;
 }
 </style>

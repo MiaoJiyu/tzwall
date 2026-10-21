@@ -100,11 +100,11 @@ onMounted(() => {
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="relative">
           <Music :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-          <input v-model="form.title" placeholder="歌名（必填）" class="input-box pl-9" @keyup.enter="submit" />
+          <input v-model="form.title" placeholder="歌名（必填）" class="input-box input-box--with-icon" @keyup.enter="submit" />
         </div>
         <div class="relative">
           <UserIcon :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-          <input v-model="form.artist" placeholder="歌手（选填）" class="input-box pl-9" />
+          <input v-model="form.artist" placeholder="歌手（选填）" class="input-box input-box--with-icon" />
         </div>
       </div>
       <textarea v-model="form.note" rows="2" placeholder="想说的话（选填，200 字内）" class="input-box mt-3 w-full"></textarea>
@@ -174,5 +174,9 @@ onMounted(() => {
 }
 .input-box:focus {
   border-color: var(--grape);
+}
+/* 带图标输入框：左侧留出图标空间（置于 .input-box 之后以覆盖其 padding 简写） */
+.input-box--with-icon {
+  padding-left: 36px;
 }
 </style>
