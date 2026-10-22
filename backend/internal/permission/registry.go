@@ -68,6 +68,12 @@ var Endpoints = []Endpoint{
 	ep("POST", "/api/auth/resend-verify", GroupAuth, "重发激活邮件", true),
 	ep("POST", "/api/auth/forgot", GroupAuth, "找回密码", true),
 	ep("POST", "/api/auth/reset", GroupAuth, "重置密码", true),
+	ep("POST", "/api/auth/wechat/login", GroupAuth, "微信小程序登录", true),
+	ep("GET", "/api/auth/qq/url", GroupAuth, "QQ 授权地址", true),
+	ep("GET", "/api/auth/qq/callback", GroupAuth, "QQ 登录回调", true),
+	ep("POST", "/api/auth/social/exchange", GroupAuth, "社交登录兑换", true),
+	ep("POST", "/api/auth/bind", GroupAuth, "绑定第三方账号", false, model.RoleUser),
+	ep("POST", "/api/auth/unbind", GroupAuth, "解绑第三方账号", false, model.RoleUser),
 	ep("POST", "/api/auth/me", GroupAuth, "当前用户", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/change-password", GroupAuth, "修改密码", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/change-email", GroupAuth, "修改邮箱", false, model.RoleUser, model.RoleAdmin),
@@ -139,10 +145,13 @@ var Endpoints = []Endpoint{
 
 	// 治理：运维面板（仅超级管理员）
 	ep("GET", "/api/admin/ops/overview", GroupGovernance, "运维概览", false, model.RoleSuperAdmin),
+	// 治理：盲水印识别（仅超级管理员）
+	ep("POST", "/api/admin/watermark/extract", GroupGovernance, "盲水印识别", false, model.RoleSuperAdmin),
 
 	// 后台管理
 	ep("GET", "/api/admin/dashboard", GroupSystem, "数据概览", false, model.RoleAdmin),
 	ep("GET", "/api/admin/users", GroupSystem, "用户列表", false, model.RoleAdmin),
+	ep("GET", "/api/admin/users/:id", GroupSystem, "用户详情", false, model.RoleAdmin),
 	ep("POST", "/api/admin/users/:id/role", GroupSystem, "变更角色", false, model.RoleSuperAdmin),
 	ep("POST", "/api/admin/users/:id/resend-verify", GroupSystem, "重发验证邮件", false, model.RoleAdmin),
 	ep("POST", "/api/admin/users/:id/activate", GroupSystem, "直接激活用户", false, model.RoleSuperAdmin),
@@ -213,6 +222,7 @@ var Pages = []Page{
 	{Key: "page:admin.logs.access", Path: "/admin/logs/access", Label: "访问日志", Requires: []string{"GET /api/admin/logs/access"}},
 	{Key: "page:admin.logs.audit", Path: "/admin/logs/audit", Label: "审计日志", Requires: []string{"GET /api/admin/logs/audit"}},
 	{Key: "page:admin.ops", Path: "/admin/ops", Label: "运维面板", Requires: []string{"GET /api/admin/ops/overview"}},
+	{Key: "page:admin.watermark", Path: "/admin/watermark", Label: "盲水印识别", Requires: []string{"POST /api/admin/watermark/extract"}},
 }
 
 // Get 按端点键取目录项。

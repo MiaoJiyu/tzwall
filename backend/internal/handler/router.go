@@ -1,9 +1,6 @@
 package handler
 
 import (
-	"crypto/sha256"
-	"time"
-
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -71,21 +68,18 @@ func SetupRouter(d Deps) *gin.Engine {
 	interH := NewInteractionHandler(interSvc)
 	imgH := NewImageHandler(d.DB, d.Storage, d.Cfg, d.Cache, d.Store, d.Moderation)
 	vidH := NewVideoHandler(d.DB, d.Storage, d.Store)
-	// 图片链接签名密钥（由 AES 密钥派生）与有效期：生成带时效、防外链的后端图片链接。
-	signKey := sha256.Sum256(append(append([]byte{}, d.Cfg.AESKey...), []byte("|img-link-v1")...))
-	imgTTL := time.Duration(d.Store.Int("image_link_ttl_seconds", 600)) * time.Second
-	SetImageSigner(signKey[:], imgTTL)
 	metaH := NewMetaHandler(d.DB, d.Cfg, d.Store, resolver)
 	adminH := NewAdminHandler(adminSvc, subSvc)
 	permH := NewPermissionHandler(permSvc, resolver)
 	punH := NewPunishmentHandler(punSvc)
 	reportSvc := service.NewReport(d.DB, d.Cache, d.Store, punSvc)
 	reportH := NewReportHandler(reportSvc, subSvc, commentSvc)
-	modH := NewModerationHandler(d.DB, d.Cfg)
+	modH := NewModerationHandler(d.DB, d.Cfg, d.Storage)
 	cfgH := NewConfigHandler(d.Store, d.Cfg)
 	agrH := NewAgreementHandler(service.NewAgreement(d.DB))
 	wordH := NewWordHandler(words)
 	logH := NewLogHandler(d.DB, d.Store)
+	wmH := NewWatermarkHandler(d.Storage)
 	opsH := NewOpsHandler(service.NewOps(d.DB, d.Cfg, d.Store, d.Cache, d.Moderation, d.Storage, func() bool {
 		return d.AI != nil && d.AI.Configured()
 	}))
@@ -108,6 +102,14 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/auth/resend-verify", perm.Public("POST /api/auth/resend-verify"), authH.ResendVerify)
 	r.POST("/api/auth/forgot", perm.Public("POST /api/auth/forgot"), authH.Forgot)
 	r.POST("/api/auth/reset", perm.Public("POST /api/auth/reset"), authH.Reset)
+
+	// 第三方登录（微信小程序 / QQ OAuth）
+	r.POST("/api/auth/wechat/login", perm.Public("POST /api/auth/wechat/login"), rate.Limit("wechat_login", "login_rph", 30), authH.WechatLogin)
+	r.GET("/api/auth/qq/url", perm.Public("GET /api/auth/qq/url"), authH.QQAuthorize)
+	r.GET("/api/auth/qq/callback", perm.Public("GET /api/auth/qq/callback"), authH.QQCallback)
+	r.POST("/api/auth/social/exchange", perm.Public("POST /api/auth/social/exchange"), authH.SocialExchange)
+	r.POST("/api/auth/bind", perm.Require("POST /api/auth/bind"), authH.BindProvider)
+	r.POST("/api/auth/unbind", perm.Require("POST /api/auth/unbind"), authH.UnbindProvider)
 
 	// 鉴权（私有）
 	r.POST("/api/auth/me", perm.Require("POST /api/auth/me"), authH.Me)
@@ -158,6 +160,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	// 后台（私有，角色在 handler 内校验）
 	r.GET("/api/admin/dashboard", perm.Require("GET /api/admin/dashboard"), adminH.Dashboard)
 	r.GET("/api/admin/users", perm.Require("GET /api/admin/users"), adminH.Users)
+	r.GET("/api/admin/users/:id", perm.Require("GET /api/admin/users/:id"), adminH.UserDetail)
 	r.POST("/api/admin/users/:id/role", perm.Require("POST /api/admin/users/:id/role"), adminH.SetRole)
 	r.POST("/api/admin/users/:id/resend-verify", perm.Require("POST /api/admin/users/:id/resend-verify"), authH.AdminResendVerify)
 	r.POST("/api/admin/users/:id/activate", perm.Require("POST /api/admin/users/:id/activate"), authH.AdminActivate)
@@ -229,6 +232,9 @@ func SetupRouter(d Deps) *gin.Engine {
 
 	// 运维面板（仅超级管理员）
 	r.GET("/api/admin/ops/overview", perm.Require("GET /api/admin/ops/overview"), opsH.Overview)
+
+	// 盲水印识别（仅超级管理员）：上传外泄图片，还原其中嵌入的访客水印
+	r.POST("/api/admin/watermark/extract", perm.Require("POST /api/admin/watermark/extract"), wmH.Extract)
 
 	return r
 }

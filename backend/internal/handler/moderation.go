@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -16,17 +17,19 @@ import (
 	"tzwall/backend/internal/model"
 	"tzwall/backend/internal/moderation"
 	"tzwall/backend/internal/pkg/response"
+	"tzwall/backend/internal/storage"
 )
 
 // ModerationHandler 审核结果回调：兼容「我方 CI 提交（job_id 关联）」与
 // 「COS 内容审核模块（按对象 Key）」两种回调格式。
 type ModerationHandler struct {
-	db  *gorm.DB
-	cfg *config.Config
+	db      *gorm.DB
+	cfg     *config.Config
+	storage storage.Storage
 }
 
-func NewModerationHandler(db *gorm.DB, cfg *config.Config) *ModerationHandler {
-	return &ModerationHandler{db: db, cfg: cfg}
+func NewModerationHandler(db *gorm.DB, cfg *config.Config, st storage.Storage) *ModerationHandler {
+	return &ModerationHandler{db: db, cfg: cfg, storage: st}
 }
 
 // Callback 处理审核结果回调（免鉴权）。
@@ -154,6 +157,10 @@ func (h *ModerationHandler) blockMediaByKey(key, label string) {
 		// 未登记的对象（非本站上传）无需处置
 		return nil
 	})
+	// 清除源站缓存副本（避免 EdgeOne/本地仍提供已下架内容）
+	if h.storage != nil {
+		_ = h.storage.Purge(context.Background(), key)
+	}
 }
 
 // rejectSubmission 机审确认违规后立即驳回投稿，驳回原因对作者可见。

@@ -57,6 +57,14 @@ var ConfigItems = []ConfigItem{
 	{Key: "login_lock_minutes", Group: GroupAccount, Label: "锁定时长（分钟）", Type: TypeInt, Default: "15", Min: 1, Max: 1440},
 	{Key: "email_verify_ttl_hours", Group: GroupAccount, Label: "邮箱激活有效期（小时）", Type: TypeInt, Default: "24", Min: 1, Max: 720},
 
+	// 第三方登录（凭证暂未申请，先预留占位；配置后由后台「系统配置」填写或经由 .env 注入）
+	{Key: "wechat_mp_appid", Group: GroupAccount, Label: "微信小程序 AppID", Type: TypeString, Default: "", Desc: "微信小程序登录用 AppID；留空则禁用微信登录"},
+	{Key: "wechat_mp_secret", Group: GroupAccount, Label: "微信小程序 AppSecret", Type: TypeSecret, Default: "", Desc: "微信小程序登录用 AppSecret；加密存储，留空表示不修改"},
+	{Key: "qq_oauth_appid", Group: GroupAccount, Label: "QQ 互联 AppID", Type: TypeString, Default: "", Desc: "QQ OAuth 登录用 AppID；留空则禁用 QQ 登录"},
+	{Key: "qq_oauth_secret", Group: GroupAccount, Label: "QQ 互联 AppKey", Type: TypeSecret, Default: "", Desc: "QQ OAuth 登录用 AppKey；加密存储，留空表示不修改"},
+	{Key: "qq_oauth_redirect_uri", Group: GroupAccount, Label: "QQ 回调地址", Type: TypeString, Default: "", Desc: "QQ 授权完成后的回调地址，需与 QQ 互联后台配置一致"},
+	{Key: "social_auto_create", Group: GroupAccount, Label: "社交登录自动建号", Type: TypeBool, Default: "true", Desc: "开启后，微信/QQ 首次登录自动创建账号；关闭则要求先注册或绑定已有账号"},
+
 	// 发帖与评论
 	{Key: "comment_max_len", Group: GroupPost, Label: "评论字数上限", Type: TypeInt, Default: "500", Min: 10, Max: 5000},
 	{Key: "comment_max_depth", Group: GroupPost, Label: "评论嵌套层数", Type: TypeInt, Default: "3", Min: 1, Max: 10},
@@ -73,6 +81,8 @@ var ConfigItems = []ConfigItem{
 	{Key: "watermark_cache_seconds", Group: GroupMedia, Label: "图片缓存时长（秒）", Type: TypeInt, Default: "600", Min: 0, Max: 86400, Desc: "图片代理的 Cache-Control 时长；0 表示不缓存"},
 	{Key: "image_link_ttl_seconds", Group: GroupMedia, Label: "图片链接有效期（秒）", Type: TypeInt, Default: "600", Min: 30, Max: 86400, Desc: "后端签发的图片链接有效期，过期需刷新页面重新获取"},
 	{Key: "image_blind_watermark", Group: GroupMedia, Label: "图片盲水印", Type: TypeBool, Default: "true", Desc: "开启后每张图片经数据万象写入盲水印（用户名+IP+请求时间），需启用 COS 图片处理"},
+	{Key: "image_cache_ttl_seconds", Group: GroupMedia, Label: "图片 CDN 缓存（秒）", Type: TypeInt, Default: "604800", Min: 0, Max: 31536000, Desc: "对外图片的 CDN 缓存时长；0 表示不缓存；内容不可变建议较长"},
+	{Key: "video_cache_ttl_seconds", Group: GroupMedia, Label: "视频 CDN 缓存（秒）", Type: TypeInt, Default: "86400", Min: 0, Max: 31536000, Desc: "对外视频的 CDN 缓存时长；0 表示不缓存；内容不可变建议 1 天以上"},
 
 	// 视频
 	{Key: "video_max_size_mb", Group: GroupMedia, Label: "单个视频大小（MB）", Type: TypeInt, Default: "100", Min: 1, Max: 1024},
@@ -109,6 +119,8 @@ var ConfigItems = []ConfigItem{
 	{Key: "ops_disk_warn_percent", Group: GroupOps, Label: "磁盘告警阈值（%）", Type: TypeInt, Default: "85", Min: 50, Max: 99},
 	{Key: "ops_cos_alert_gb", Group: GroupOps, Label: "COS 用量告警（GB）", Type: TypeInt, Default: "50", Min: 1, Max: 100000, Desc: "按已上传图片体积估算"},
 	{Key: "backup_dir", Group: GroupOps, Label: "备份目录", Type: TypeString, Default: "/var/backups/tzwall", Desc: "运维面板读取该目录展示备份文件"},
+	{Key: "media_cache_dir", Group: GroupOps, Label: "源站缓存目录", Type: TypeString, Default: "./data/media_cache", Desc: "COS 对象本地副本目录，用于减少回源流量；修改需重启", Restart: true},
+	{Key: "media_cache_max_gb", Group: GroupOps, Label: "源站缓存上限（GB）", Type: TypeInt, Default: "10", Min: 1, Max: 1000, Desc: "源站缓存最大占用，超出按 LRU 淘汰；修改需重启", Restart: true},
 
 	// 页脚备案
 	{Key: "footer_icp", Group: GroupFooter, Label: "ICP 备案号", Type: TypeString, Default: "", Desc: "留空则页脚不展示"},

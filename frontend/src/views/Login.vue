@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Mail, KeyRound } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
@@ -14,6 +14,30 @@ const route = useRoute()
 const identifier = ref('')
 const password = ref('')
 const loading = ref(false)
+const social = ref({ wechat: false, qq: false })
+
+onMounted(async () => {
+  // QQ/微信 授权回跳：用一次性 code 兑换登录态
+  const sc = route.query.social_code as string | undefined
+  if (sc) {
+    try {
+      const r: any = await authApi.socialExchange(sc)
+      auth.set(r.token, r.user)
+      meta.ensureAgreement()
+      router.replace((route.query.redirect as string) || '/')
+    } catch (e: any) {
+      ElMessage.error(e?.response?.data?.message || '社交登录失败，请重试')
+    }
+    return
+  }
+  if (route.query.social_error) {
+    ElMessage.error((route.query.social_error as string) || '社交登录失败')
+  }
+  social.value = {
+    wechat: !!meta.site?.features?.social?.wechat,
+    qq: !!meta.site?.features?.social?.qq,
+  }
+})
 
 async function submit() {
   if (!identifier.value || !password.value) {
@@ -29,6 +53,19 @@ async function submit() {
   } finally {
     loading.value = false
   }
+}
+
+async function qqLogin() {
+  try {
+    const r: any = await authApi.qqAuthorize()
+    window.location.href = r.url
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '发起 QQ 登录失败')
+  }
+}
+
+function wechatTip() {
+  ElMessage.info('微信登录请在「泰兴中学校园墙」微信小程序中使用')
 }
 </script>
 
@@ -65,6 +102,24 @@ async function submit() {
           <button class="btn-grape w-full rounded-full py-2.5 font-medium" :disabled="loading" @click="submit">
             {{ loading ? '登录中…' : '登录' }}
           </button>
+
+          <div v-if="social.wechat || social.qq" class="mt-4">
+            <div class="flex items-center gap-3 text-xs text-[var(--text-soft)]">
+              <span class="h-px flex-1 bg-[var(--border)]"></span>
+              第三方账号登录
+              <span class="h-px flex-1 bg-[var(--border)]"></span>
+            </div>
+            <div class="mt-3 flex gap-3">
+              <button v-if="social.qq" @click="qqLogin"
+                class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">
+                QQ 登录
+              </button>
+              <button v-if="social.wechat" @click="wechatTip"
+                class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">
+                微信登录
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="mt-4 flex justify-between text-sm">

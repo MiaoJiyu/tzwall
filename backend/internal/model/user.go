@@ -34,6 +34,17 @@ type User struct {
 	QQ           string `gorm:"size:32" json:"qq,omitempty"`
 	Phone        string `gorm:"size:32" json:"phone,omitempty"`
 
+	// 第三方登录身份（与上面的 Wechat/QQ 自由文本联系方式区分）：
+	// openid 按应用 appid 维度；unionid 为微信/QQ 开放平台跨应用统一身份，是账号关联的主键。
+	WxOpenid  string `gorm:"size:64;index" json:"-"`
+	WxUnionid string `gorm:"size:64;index" json:"-"`
+	QqOpenid  string `gorm:"size:64;index" json:"-"`
+	QqUnionid string `gorm:"size:64;index" json:"-"`
+
+	// 社交资料（展示用，非敏感）
+	Nickname string `gorm:"size:64" json:"nickname,omitempty"`
+	Avatar   string `gorm:"size:512" json:"avatar,omitempty"`
+
 	Role Role `gorm:"size:20;default:user;index" json:"role"`
 
 	EmailVerified     bool       `gorm:"default:false" json:"email_verified"`

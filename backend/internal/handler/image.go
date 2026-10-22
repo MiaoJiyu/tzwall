@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -33,7 +32,7 @@ import (
 	"tzwall/backend/internal/storage"
 )
 
-// ImageHandler 图片上传与代理（后端烧录水印、短缓存、防盗链）。
+// ImageHandler 图片上传与代理（后端短缓存返回，全站水印由前端覆盖层承担）。
 type ImageHandler struct {
 	db      *gorm.DB
 	storage storage.Storage
@@ -123,19 +122,9 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 
 // Proxy 鉴权图片代理：从存储取原图并短缓存返回（不再烧录水印，全站水印由前端覆盖层承担）。
 func (h *ImageHandler) Proxy(c *gin.Context) {
-	if !refererAllowed(c) {
-		response.Fail(c, http.StatusForbidden, errs.CodeForbidden, "防盗链拒绝")
-		return
-	}
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
-	// 签名校验：链接须带有效期内签名，防外链盗用；u 为浏览者ID（参与签名与盲水印）
-	uid, _ := strconv.Atoi(c.Query("u"))
-	if !verifyImageURL(uint(id), uid, c.Query("e"), c.Query("s")) {
-		response.Fail(c, http.StatusForbidden, errs.CodeForbidden, "图片链接无效或已过期")
-		return
-	}
-
+	// 图片链接为纯路径，无需签名校验（内容已审核且对象置私有，仅经授权展示时返回）。
 	var im model.SubmissionImage
 	if err := h.db.First(&im, id).Error; err != nil {
 		response.FailCode(c, errs.ErrValidation, "")
@@ -194,7 +183,7 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 	var r io.ReadCloser
 	var err error
 	if useWatermark {
-		rule := blindWatermarkRule(c, uid)
+		rule := blindWatermarkRule(c)
 		r, err = h.storage.ProcessedGet(c.Request.Context(), im.StorageKey, rule)
 		if err != nil {
 			// 图片处理不可用时回退原图，保证仍可显示
@@ -227,6 +216,13 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 		ttl := time.Duration(h.store.Int("watermark_cache_seconds", 600)) * time.Second
 		h.cache.Set(cacheKey, hex.EncodeToString(out), ttl)
 	}
+	// 对外缓存策略：盲水印图片按用户变化，仅私有缓存；其余内容不可变，可公开长缓存复用。
+	if useWatermark {
+		c.Header("Cache-Control", "private, max-age=300")
+	} else {
+		ttl := time.Duration(h.store.Int("image_cache_ttl_seconds", 604800)) * time.Second
+		c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", int(ttl.Seconds())))
+	}
 	c.Data(http.StatusOK, contentTypeOrDefault(im.ContentType), out)
 }
 
@@ -247,6 +243,9 @@ func (h *ImageHandler) markBlocked(im *model.SubmissionImage) {
 		}
 	}
 	slog.Default().Info("图片判定违规，已下架并驳回投稿", "id", im.ID, "key", im.StorageKey, "submission", im.SubmissionID)
+	if h.storage != nil {
+		_ = h.storage.Purge(context.Background(), im.StorageKey)
+	}
 }
 
 // dropImageCache 清除图片内容与可用性标记缓存。
@@ -274,11 +273,12 @@ func (h *ImageHandler) SyncPrivate(c *gin.Context) {
 }
 
 // blindWatermarkRule 构造 COS 数据万象盲水印处理规则。
-// 文本 = 用户ID + IP + 请求时间（文字盲水印仅支持 [A-Za-z0-9]，故用单字母分隔）。
-func blindWatermarkRule(c *gin.Context, uid int) string {
-	text := "u" + strconv.FormatInt(int64(uid), 36) + "i" + compactIP(middleware.ClientIP(c)) + "t" + strconv.FormatInt(time.Now().Unix(), 36)
+// 文本 = "i~<IP base36>~t~<时间戳 base36>"，采用 version 3.0 文字盲水印，
+// 以便识别接口（/api/admin/watermark/extract）通过 watermark/4 以文本形式直接取回。
+func blindWatermarkRule(c *gin.Context) string {
+	text := "i~" + compactIP(middleware.ClientIP(c)) + "~t~" + strconv.FormatInt(time.Now().Unix(), 36)
 	b64 := base64.URLEncoding.EncodeToString([]byte(text))
-	return "watermark/3/type/3/text/" + b64
+	return "watermark/3/type/3/version/3.0/text/" + b64
 }
 
 // compactIP 将 IP 压缩为 base36：IPv4 转整数；其他类型取哈希前 4 字节。
@@ -314,15 +314,4 @@ func contentTypeOrDefault(ct string) string {
 	return "image/jpeg"
 }
 
-// refererAllowed 基础防盗链：Referer 非空且 host 与本站不一致则拒绝。
-func refererAllowed(c *gin.Context) bool {
-	ref := c.GetHeader("Referer")
-	if ref == "" {
-		return true
-	}
-	parsed, err := url.Parse(ref)
-	if err != nil || parsed.Host == "" {
-		return true
-	}
-	return parsed.Host == c.Request.Host
-}
+

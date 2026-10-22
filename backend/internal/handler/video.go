@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -115,17 +116,9 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 
 // Proxy 鉴权视频代理，支持 HTTP Range（拖动播放）。
 func (h *VideoHandler) Proxy(c *gin.Context) {
-	if !refererAllowed(c) {
-		response.Fail(c, http.StatusForbidden, errs.CodeForbidden, "防盗链拒绝")
-		return
-	}
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	uid, _ := strconv.Atoi(c.Query("u"))
-	if !verifyVideoURL(uint(id), uid, c.Query("e"), c.Query("s")) {
-		response.Fail(c, http.StatusForbidden, errs.CodeForbidden, "视频链接无效或已过期")
-		return
-	}
 
+	// 视频链接为纯路径，无需签名校验。
 	var v model.SubmissionVideo
 	if err := h.db.First(&v, id).Error; err != nil {
 		response.FailCode(c, errs.ErrValidation, "")
@@ -142,7 +135,13 @@ func (h *VideoHandler) Proxy(c *gin.Context) {
 	}
 	c.Header("Content-Type", ct)
 	c.Header("Accept-Ranges", "bytes")
-	c.Header("Cache-Control", "private, max-age=600")
+	// 视频内容不可变（同一对象 key 唯一），可公开长缓存复用，显著减少回源与 CDN 流量。
+	ttl := time.Duration(h.store.Int("video_cache_ttl_seconds", 86400)) * time.Second
+	if ttl > 0 {
+		c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", int(ttl.Seconds())))
+	} else {
+		c.Header("Cache-Control", "no-store")
+	}
 	c.Header("X-Content-Type-Options", "nosniff")
 
 	total := v.Size
@@ -207,6 +206,9 @@ func (h *VideoHandler) markBlocked(v *model.SubmissionVideo) {
 		}
 	}
 	slog.Default().Info("视频判定违规，已下架并驳回投稿", "id", v.ID, "key", v.StorageKey, "submission", v.SubmissionID)
+	if h.storage != nil {
+		_ = h.storage.Purge(context.Background(), v.StorageKey)
+	}
 }
 
 // parseByteRange 解析单段 Range 请求头，返回闭区间 [start,end]。

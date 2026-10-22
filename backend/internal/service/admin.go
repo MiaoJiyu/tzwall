@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -60,6 +61,18 @@ func (s *AdminService) ListUsers(actor *model.User, keyword string, page, pageSi
 	var users []model.User
 	q.Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&users)
 	return users, total, nil
+}
+
+// GetUser 按 ID 获取用户（后台详情用）。
+func (s *AdminService) GetUser(id uint) (*model.User, error) {
+	var u model.User
+	if err := s.db.First(&u, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errs.New(errs.CodeNotFound, nil)
+		}
+		return nil, err
+	}
+	return &u, nil
 }
 
 // SetRole 变更角色。仅超管；不可授予/降级超级管理员（保持手动）。

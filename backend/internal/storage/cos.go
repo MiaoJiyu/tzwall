@@ -1,7 +1,10 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -136,6 +139,62 @@ func (s *cosStorage) ProcessedGet(ctx context.Context, key, ciRule string) (io.R
 	return resp.Body, nil
 }
 
+// ExtractTextWatermark 盲水印识别：将待识别图片上传到临时对象，以
+// watermark/4/type/3/version/3.0 同步提取文字盲水印，返回数据万象原始响应
+// （XML，含 <Text>/<WatermarkStatusCode>），随后删除临时对象。
+// 提取需与嵌入同账号同桶；fileid 与临时对象一致，避免额外落对象。
+func (s *cosStorage) ExtractTextWatermark(ctx context.Context, data []byte, contentType string) ([]byte, error) {
+	base := strings.TrimRight(strings.TrimSpace(s.cfg.CosBaseURL), "/")
+	if base == "" || !strings.Contains(base, "://") {
+		base = fmt.Sprintf("https://%s.cos.%s.myqcloud.com", s.cfg.CosBucket, s.cfg.CosRegion)
+	}
+	// 临时对象：识别后即删，避免桶内残留
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	key := "wmcheck/" + hex.EncodeToString(b)
+
+	// PUT Object + Pic-Operations（上传即提取）。签名传输会将 Pic-Operations 等头签入。
+	u := base + "/" + url.PathEscape(key)
+	picOps := fmt.Sprintf(`{"is_pic_info":1,"rules":[{"fileid":%q,"rule":"watermark/4/type/3/version/3.0"}]}`, key)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	req.Header.Set("Pic-Operations", picOps)
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.deleteObject(ctx, base, key)
+		return nil, err
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	resp.Body.Close()
+	// 识别完成后删除临时对象（与成败无关）
+	s.deleteObject(ctx, base, key)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+			return nil, ErrObjectUnavailable
+		}
+		return nil, fmt.Errorf("cos 盲水印识别失败: %s", resp.Status)
+	}
+	return body, nil
+}
+
+// deleteObject 尽力删除 COS 对象（清理识别用的临时对象）。
+func (s *cosStorage) deleteObject(ctx context.Context, base, key string) {
+	dctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(dctx, http.MethodDelete, base+"/"+url.PathEscape(key), nil)
+	if err != nil {
+		return
+	}
+	if resp, err := s.httpClient.Do(req); err == nil {
+		_ = resp.Body.Close()
+	}
+}
+
 // Head 轻量探测对象可访问性。COS 内容审核冻结后：私有读返回 403、转移备份目录返回 404，
 // 均视为不可用（除非本地仍有存量副本）。
 func (s *cosStorage) Head(ctx context.Context, key string) error {
@@ -172,6 +231,14 @@ func (s *cosStorage) SetPrivate(ctx context.Context, key string) error {
 }
 
 func (s *cosStorage) Configured() bool { return true }
+
+// Purge 透传清除底层本地兜底副本；COS 对象由审核下架逻辑置为私有，无需物理删除。
+func (s *cosStorage) Purge(ctx context.Context, key string) error {
+	if s.local != nil {
+		return s.local.Purge(ctx, key)
+	}
+	return nil
+}
 
 // Probe 以只读方式探测 COS 连通性（查询对象是否存在，不产生副作用）。
 func (s *cosStorage) Probe(ctx context.Context) error {

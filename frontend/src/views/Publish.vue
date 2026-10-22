@@ -88,7 +88,7 @@ async function submit() {
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium">视频（可选，上传后由腾讯云自动审核，不违规进入人工审核）</label>
+        <label class="mb-1 block text-sm font-medium">视频（可选）</label>
         <VideoUploader v-model="videos" :max="3" />
       </div>
 

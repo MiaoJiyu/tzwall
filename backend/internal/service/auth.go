@@ -72,7 +72,12 @@ func (s *AuthService) resetLink(token string) string {
 
 // linkHTML 生成含可点击绝对链接的邮件正文（同时展示链接文本便于复制）。
 func linkHTML(prefix, link string) string {
-	return prefix + "<br><a href=\"" + link + "\" target=\"_blank\" style=\"color:#6b2a73\">" + link + "</a><br>若无法点击，请复制上述链接到浏览器打开。"
+	return fmt.Sprintf(
+		`<div style="font-family:-apple-system,Segoe UI,Roboto,'PingFang SC',sans-serif;font-size:14px;color:#222;line-height:1.7">`+
+			`<p style="margin:0 0 12px">%s</p>`+
+			`<p style="margin:0 0 12px"><a href="%s" style="color:#6b2a73;text-decoration:underline">%s</a></p>`+
+			`<p style="margin:0;color:#888;font-size:12px">如链接无法点击，请复制以下地址到浏览器打开：<br>%s</p>`+
+			`</div>`, prefix, link, link, link)
 }
 
 // Register 注册。

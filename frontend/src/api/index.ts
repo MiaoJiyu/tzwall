@@ -13,6 +13,11 @@ export const authApi = {
   logout: () => http.post('/auth/logout'),
   deleteAccount: () => http.post('/auth/delete-account'),
   confirmAgreement: () => http.post('/auth/agreement-confirm'),
+  wechatLogin: (code: string) => http.post('/auth/wechat/login', { code }),
+  qqAuthorize: () => http.get('/auth/qq/url'),
+  socialExchange: (code: string) => http.post('/auth/social/exchange', { code }),
+  bindProvider: (p: { provider: string; code: string }) => http.post('/auth/bind', p),
+  unbindProvider: (p: { provider: string }) => http.post('/auth/unbind', p),
 }
 
 export const submissionApi = {
@@ -50,6 +55,7 @@ export const interactionApi = {
 export const adminApi = {
   dashboard: () => http.get('/admin/dashboard'),
   users: (params: any) => http.get('/admin/users', { params }),
+  userDetail: (id: number) => http.get('/admin/users/' + id),
   setRole: (id: number, p: any) => http.post('/admin/users/' + id + '/role', p),
   resendUserVerify: (id: number) => http.post('/admin/users/' + id + '/resend-verify'),
   pendingTags: () => http.get('/admin/tags/pending'),
@@ -145,4 +151,12 @@ export const logApi = {
 
 export const opsApi = {
   overview: () => http.get('/admin/ops/overview'),
+}
+
+export const watermarkApi = {
+  extract: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return http.post('/admin/watermark/extract', fd)
+  },
 }

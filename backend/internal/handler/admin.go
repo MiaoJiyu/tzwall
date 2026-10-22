@@ -77,6 +77,37 @@ func (h *AdminHandler) Users(c *gin.Context) {
 	response.OK(c, gin.H{"items": list, "total": total, "page": page, "page_size": pageSize})
 }
 
+// UserDetail 用户详情（仅后台）。返回含真实姓名/学校/联系方式等敏感字段；
+// 这些字段在 User 模型上为 json:"-" 不随列表与公开接口泄露，故单独提供。
+func (h *AdminHandler) UserDetail(c *gin.Context) {
+	actor := adminUser(c)
+	if actor == nil {
+		return
+	}
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	u, err := h.svc.GetUser(uint(id))
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{
+		"id":             u.ID,
+		"username":       u.Username,
+		"email":          u.Email,
+		"email_verified": u.EmailVerified,
+		"role":           u.Role,
+		"status":         u.Status,
+		"real_name":      u.RealName,
+		"school":         u.School,
+		"wechat":         u.Wechat,
+		"qq":             u.QQ,
+		"phone":          u.Phone,
+		"created_at":     u.CreatedAt,
+		"updated_at":     u.UpdatedAt,
+	})
+}
+
 // SetRole 角色变更（仅超管）。
 func (h *AdminHandler) SetRole(c *gin.Context) {
 	u := adminUser(c)

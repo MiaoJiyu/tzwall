@@ -51,6 +51,10 @@ func (h *MetaHandler) Site(c *gin.Context) {
 			"storage":    h.cfg.StorageConfigured,
 			"mailer":     h.cfg.MailerConfigured,
 			"moderation": h.cfg.ModerationConfigured,
+			"social": gin.H{
+				"wechat": h.store.Get("wechat_mp_appid") != "" || h.cfg.WechatMPAppID != "",
+				"qq":     h.store.Get("qq_oauth_appid") != "" || h.cfg.QQAppID != "",
+			},
 		},
 	})
 }

@@ -50,7 +50,15 @@ func Run() error {
 
 	c, _ := cache.New(cfg)
 	store := service.NewConfigStoreWithKey(db, cfg.AESKey)
-	st := storage.New(cfg)
+	// 源站缓存目录与上限：后台配置优先，回退环境变量与默认值；修改需重启
+	mediaCacheDir := firstNonEmpty(store.Get("media_cache_dir"), cfg.MediaCacheDir, "./data/media_cache")
+	mediaCacheMaxGB := cfg.MediaCacheMaxGB
+	if v := store.Get("media_cache_max_gb"); v != "" {
+		if n, e := strconv.Atoi(v); e == nil && n > 0 {
+			mediaCacheMaxGB = n
+		}
+	}
+	st := storage.New(cfg, mediaCacheDir, mediaCacheMaxGB)
 	mod := moderation.New(cfg, db)
 
 	// AI 审核：配置来自后台系统配置（加密存储），保存即生效

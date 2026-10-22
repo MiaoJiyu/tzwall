@@ -43,6 +43,22 @@ function onSearch() {
   load()
 }
 
+const detail = ref<any>(null)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+async function openDetail(u: any) {
+  detailLoading.value = true
+  detailVisible.value = true
+  detail.value = null
+  try {
+    detail.value = await adminApi.userDetail(u.id)
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '获取详情失败')
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -81,6 +97,12 @@ onMounted(load)
               <td class="py-2 text-[var(--text-soft)]">{{ u.status }}</td>
               <td class="py-2" v-if="auth.isAdmin">
                 <div class="flex items-center gap-2">
+                  <button
+                    class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-xs hover:text-[var(--grape)]"
+                    @click="openDetail(u)"
+                  >
+                    查看详情
+                  </button>
                   <button
                     v-if="!u.email_verified"
                     class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-xs hover:text-[var(--grape)]"
@@ -122,6 +144,35 @@ onMounted(load)
         background
       />
     </div>
+
+    <el-dialog v-model="detailVisible" title="用户详情" width="440px">
+      <div v-loading="detailLoading" class="space-y-2.5 text-sm">
+        <template v-if="detail">
+          <div class="grid grid-cols-3 gap-y-2.5 gap-x-2">
+            <span class="text-[var(--text-soft)]">用户名</span>
+            <span class="col-span-2 font-medium">{{ detail.username }}</span>
+            <span class="text-[var(--text-soft)]">邮箱</span>
+            <span class="col-span-2">{{ detail.email }}<span v-if="detail.email_verified" class="ml-1 text-[var(--jade)]">（已验证）</span></span>
+            <span class="text-[var(--text-soft)]">真实姓名</span>
+            <span class="col-span-2">{{ detail.real_name || '—' }}</span>
+            <span class="text-[var(--text-soft)]">就读学校</span>
+            <span class="col-span-2">{{ detail.school || '—' }}</span>
+            <span class="text-[var(--text-soft)]">微信</span>
+            <span class="col-span-2">{{ detail.wechat || '—' }}</span>
+            <span class="text-[var(--text-soft)]">QQ</span>
+            <span class="col-span-2">{{ detail.qq || '—' }}</span>
+            <span class="text-[var(--text-soft)]">手机</span>
+            <span class="col-span-2">{{ detail.phone || '—' }}</span>
+            <span class="text-[var(--text-soft)]">角色</span>
+            <span class="col-span-2">{{ detail.role }}</span>
+            <span class="text-[var(--text-soft)]">状态</span>
+            <span class="col-span-2">{{ detail.status }}</span>
+            <span class="text-[var(--text-soft)]">注册时间</span>
+            <span class="col-span-2">{{ detail.created_at }}</span>
+          </div>
+        </template>
+      </div>
+    </el-dialog>
   </div>
 </template>
 

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -77,6 +78,11 @@ func (s *localStorage) ProcessedGet(ctx context.Context, key, ciRule string) (io
 	return s.Get(ctx, key)
 }
 
+// ExtractTextWatermark 本地存储不支持盲水印识别（需 COS 数据万象）。
+func (s *localStorage) ExtractTextWatermark(ctx context.Context, data []byte, contentType string) ([]byte, error) {
+	return nil, fmt.Errorf("本地存储不支持盲水印识别")
+}
+
 // Head 探测本地对象是否存在。
 func (s *localStorage) Head(ctx context.Context, key string) error {
 	if _, err := os.Stat(filepath.Join(s.dir, filepath.Base(key))); err != nil {
@@ -91,6 +97,12 @@ func (s *localStorage) SetPrivate(ctx context.Context, key string) error {
 }
 
 func (s *localStorage) Configured() bool { return s.configured }
+
+// Purge 删除本地磁盘上的对象副本（下架/删除时调用）。
+func (s *localStorage) Purge(ctx context.Context, key string) error {
+	_ = os.Remove(filepath.Join(s.dir, filepath.Base(key)))
+	return nil
+}
 
 // Probe 本地目录可写即视为健康。
 func (s *localStorage) Probe(ctx context.Context) error {

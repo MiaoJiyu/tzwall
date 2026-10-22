@@ -46,6 +46,13 @@ type Config struct {
 	SmtpPass string
 	SmtpFrom string
 
+	// 第三方登录（微信小程序 / QQ OAuth）。凭证优先取后台配置中心，回退 .env；留空表示对应方式未启用。
+	WechatMPAppID  string
+	WechatMPSecret string
+	QQAppID        string
+	QQSecret       string
+	QQRedirectURI  string
+
 	WatermarkFontPath string
 	SiteName          string
 	TrustedProxies    []string
@@ -62,6 +69,10 @@ type Config struct {
 	ModerationConfigured bool
 	MailerConfigured     bool
 	RedisConfigured      bool
+
+	// 媒体源站缓存（减少回源 COS 流量）
+	MediaCacheDir   string
+	MediaCacheMaxGB int
 }
 
 func getenv(k, d string) string {
@@ -117,6 +128,12 @@ func Load() *Config {
 	c.SmtpPass = getenv("SMTP_PASS", "")
 	c.SmtpFrom = getenv("SMTP_FROM", "")
 
+	c.WechatMPAppID = getenv("WECHAT_MP_APPID", "")
+	c.WechatMPSecret = getenv("WECHAT_MP_SECRET", "")
+	c.QQAppID = getenv("QQ_OAUTH_APPID", "")
+	c.QQSecret = getenv("QQ_OAUTH_SECRET", "")
+	c.QQRedirectURI = getenv("QQ_OAUTH_REDIRECT_URI", "")
+
 	c.WatermarkFontPath = getenv("WATERMARK_FONT_PATH", "")
 	c.SiteName = getenv("SITE_NAME", "泰兴中学校园墙")
 	c.TrustedProxies = strings.Split(getenv("TRUSTED_PROXIES", "127.0.0.1"), ",")
@@ -131,6 +148,9 @@ func Load() *Config {
 	c.ModerationConfigured = c.StorageConfigured
 	c.MailerConfigured = c.SmtpHost != "" && c.SmtpUser != "" && c.SmtpPass != ""
 	c.RedisConfigured = c.RedisAddr != ""
+
+	c.MediaCacheDir = getenv("MEDIA_CACHE_DIR", "./data/media_cache")
+	c.MediaCacheMaxGB, _ = strconv.Atoi(getenv("MEDIA_CACHE_MAX_GB", "10"))
 
 	return c
 }

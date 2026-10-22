@@ -53,30 +53,30 @@ async function submit() {
       <div class="grid grid-cols-2 gap-3">
         <div class="relative">
           <User :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-          <input v-model="form.username" placeholder="用户名(6-12位)" class="input-style pl-9" />
+          <input v-model="form.username" placeholder="用户名(6-12位)" class="input-style" />
         </div>
         <div class="relative">
           <Lock :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-          <input v-model="form.password" type="password" placeholder="密码" class="input-style pl-9" />
+          <input v-model="form.password" type="password" placeholder="密码" class="input-style" />
         </div>
       </div>
       <div class="relative">
         <Mail :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-        <input v-model="form.email" placeholder="邮箱（必填且唯一）" class="input-style pl-9" />
+        <input v-model="form.email" placeholder="邮箱（必填且唯一）" class="input-style" />
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="relative">
           <School :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-          <input v-model="form.real_name" placeholder="真实姓名(仅后台可见)" class="input-style pl-9" />
+          <input v-model="form.real_name" placeholder="真实姓名(仅后台可见)" class="input-style" />
         </div>
-        <input v-model="form.school" placeholder="就读学校(仅后台可见)" class="input-style" />
+        <input v-model="form.school" placeholder="就读学校(仅后台可见)" class="input-style no-icon" />
       </div>
       <div class="grid grid-cols-3 gap-3">
-        <input v-model="form.wechat" placeholder="微信(选填)" class="input-style" />
-        <input v-model="form.qq" placeholder="QQ(选填)" class="input-style" />
+        <input v-model="form.wechat" placeholder="微信(选填)" class="input-style no-icon" />
+        <input v-model="form.qq" placeholder="QQ(选填)" class="input-style no-icon" />
         <div class="relative">
           <Phone :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
-          <input v-model="form.phone" placeholder="手机(选填)" class="input-style pl-9" />
+          <input v-model="form.phone" placeholder="手机(选填)" class="input-style" />
         </div>
       </div>
 
@@ -98,14 +98,18 @@ async function submit() {
 
 <style scoped>
 .input-style {
+  width: 100%;
+  box-sizing: border-box;
   height: 44px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface-2);
-  padding: 0 12px;
-  padding-left: 2.5rem;
+  padding: 0 14px 0 2.5rem;
   outline: none;
   font-size: 14px;
+}
+.input-style.no-icon {
+  padding-left: 14px;
 }
 .input-style:focus {
   border-color: var(--grape);

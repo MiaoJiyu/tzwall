@@ -33,6 +33,9 @@ const (
 	ErrForceReset          = 41021
 	ErrWarnPending         = 41022
 	ErrIPBanned            = 41023
+	ErrThirdPartyUnavailable = 41024 // 第三方登录未配置或不可用
+	ErrIdentityConflict      = 41025 // 第三方账号已绑定到其他用户
+	ErrSocialNoAccount       = 41026 // 第三方身份未关联本站账号（且未开启自动建号）
 )
 
 // Msg 业务码到默认文案的映射。
@@ -68,6 +71,9 @@ var Msg = map[int]string{
 	ErrForceReset:          "请先修改密码后再继续操作",
 	ErrWarnPending:         "请先确认警告后再继续操作",
 	ErrIPBanned:            "该 IP 已被封禁",
+	ErrThirdPartyUnavailable: "第三方登录未配置或暂不可用",
+	ErrIdentityConflict:      "该第三方账号已绑定到其他用户",
+	ErrSocialNoAccount:       "该第三方账号尚未关联本站账号，请先注册或用其他方式登录后绑定",
 }
 
 func Text(code int) string {

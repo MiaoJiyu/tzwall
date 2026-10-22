@@ -43,6 +43,7 @@ const routes = [
       { path: 'logs/access', name: 'admin-logs-access', component: () => import('@/views/admin/LogsAccess.vue'), meta: { page: 'page:admin.logs.access' } },
       { path: 'logs/audit', name: 'admin-logs-audit', component: () => import('@/views/admin/LogsAudit.vue'), meta: { page: 'page:admin.logs.audit' } },
       { path: 'ops', name: 'admin-ops', component: () => import('@/views/admin/Ops.vue'), meta: { page: 'page:admin.ops' } },
+      { path: 'watermark', name: 'admin-watermark', component: () => import('@/views/admin/Watermark.vue'), meta: { page: 'page:admin.watermark' } },
     ],
   },
   { path: '/403', name: 'forbidden', component: () => import('@/views/Forbidden.vue') },

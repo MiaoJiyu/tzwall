@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity } from 'lucide-vue-next'
+import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity, ScanLine } from 'lucide-vue-next'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const auth = useAuthStore()
@@ -44,6 +44,9 @@ function logout() {
         </router-link>
         <router-link v-if="auth.user?.role === 'super_admin'" to="/admin/ops" class="admin-link">
           <Activity :size="18" /> 运维面板
+        </router-link>
+        <router-link v-if="auth.user?.role === 'super_admin'" to="/admin/watermark" class="admin-link">
+          <ScanLine :size="18" /> 盲水印识别
         </router-link>
       </nav>
       <div class="border-t border-[var(--border)] p-3">
