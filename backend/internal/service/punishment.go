@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -234,7 +235,7 @@ func (s *PunishmentService) forceReset(req PunishRequest) (string, error) {
 	// 邮件通知（SMTP 未配置时降级为不发送）
 	if s.m != nil && s.m.Configured() {
 		body := fmt.Sprintf("你的账号已被管理员要求修改密码。\n新的临时密码：%s\n请登录后立即修改密码。", tempPwd)
-		_ = s.m.Send(nil, u.Email, "【校园墙】账号密码已被重置", body)
+		_ = s.m.Send(context.Background(), u.Email, "【校园墙】账号密码已被重置", body)
 	}
 	return tempPwd, nil
 }

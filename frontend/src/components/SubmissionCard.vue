@@ -2,11 +2,13 @@
 import { useRouter } from 'vue-router'
 import { Heart, MessageCircle, Eye, Image as ImageIcon, Video as VideoIcon, Ban, Gavel } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import TitleBadge from '@/components/TitleBadge.vue'
 
 const props = defineProps<{ item: any }>()
 const emit = defineEmits(['penalty', 'takedown'])
 const auth = useAuthStore()
 const router = useRouter()
+const statusText: Record<string, string> = { pending: '审核中', approved: '已通过', rejected: '未通过', need_edit: '需修改', withdrawn: '已撤回' }
 function open() {
   router.push('/submission/' + props.item.id)
 }
@@ -16,8 +18,9 @@ function open() {
   <article class="paper-card cursor-pointer p-5 animate-fadeup" @click="open">
     <div class="flex items-center gap-2 text-xs text-[var(--text-soft)]">
       <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ item.anonymous ? '匿名用户' : item.author }}</span>
+      <TitleBadge v-if="!item.anonymous" :title="item.author_title" />
       <span>{{ item.created_at }}</span>
-      <span v-if="item.status && item.status !== 'approved'" class="rounded bg-warn/20 px-1.5 py-0.5 text-warn">{{ item.status }}</span>
+      <span v-if="item.status && item.status !== 'approved'" class="rounded bg-warn/20 px-1.5 py-0.5 text-warn">{{ statusText[item.status] || item.status }}</span>
     </div>
     <h3 class="mt-2 font-serif-sc text-lg font-bold leading-snug">{{ item.title }}</h3>
     <p v-if="item.content" class="mt-2 line-clamp-3 text-sm text-[var(--text-soft)]">{{ item.content }}</p>

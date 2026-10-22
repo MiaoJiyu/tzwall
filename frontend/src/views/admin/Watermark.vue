@@ -54,7 +54,7 @@ async function recognize() {
     <div class="paper-card mb-4 p-5">
       <p class="mb-1 text-sm font-medium">泄露溯源</p>
       <p class="mb-4 text-sm text-[var(--text-soft)]">
-        本站图片在对外分发时会为每位访客嵌入不可见的<strong>文字盲水印</strong>（含访客 IP 与分发时间）。
+        本站图片在对外分发时会为每位访客嵌入不可见的<strong>文字盲水印</strong>（含访客用户名、IP 与分发时间）。
         若发现图片被截图外泄，可在此上传该图片，还原其中嵌入的访客信息以定位泄露者。本页面仅超级管理员可见。
       </p>
       <p class="text-xs text-[var(--text-soft)]">
@@ -105,8 +105,12 @@ async function recognize() {
 
         <div v-if="result.found" class="space-y-3">
           <div class="rounded-xl bg-[var(--surface-2)] p-4">
+            <p class="mb-1 text-xs text-[var(--text-soft)]">访客用户名</p>
+            <p class="text-lg font-semibold">{{ result.username || '游客' }}</p>
+          </div>
+          <div class="rounded-xl bg-[var(--surface-2)] p-4">
             <p class="mb-1 text-xs text-[var(--text-soft)]">访客 IP</p>
-            <p class="font-mono text-lg font-semibold">{{ result.ip || '—' }}</p>
+            <p class="font-mono text-lg font-semibold">{{ result.ip_addr || result.ip || '—' }}</p>
           </div>
           <div class="rounded-xl bg-[var(--surface-2)] p-4">
             <p class="mb-1 text-xs text-[var(--text-soft)]">分发时间</p>

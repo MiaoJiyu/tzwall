@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { Heart, ThumbsDown, Share2, MessageCircle, Send, Flag, Ban, Gavel } from 'lucide-vue-next'
+import { useRoute, useRouter } from 'vue-router'
+import { Heart, ThumbsDown, Share2, MessageCircle, Send, Flag, Ban, Gavel, Pencil, Undo2 } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { submissionApi, commentApi, interactionApi, punishmentApi, adminApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import CommentTree from '@/components/CommentTree.vue'
+import TitleBadge from '@/components/TitleBadge.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
 import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const id = Number(route.params.id)
 const detail = ref<any>(null)
@@ -25,6 +27,25 @@ const reportTarget = ref<{ type: string; id: number }>({ type: 'submission', id:
 function openReport(type: string, targetId: number) {
   reportTarget.value = { type, id: targetId }
   showReport.value = true
+}
+
+// 作者操作：修改（进入编辑页）/ 撤回（依据后端 can_edit/can_withdraw）
+function editSubmission() {
+  router.push('/publish?edit=' + id)
+}
+async function withdrawSubmission() {
+  try {
+    await ElMessageBox.confirm('撤回后该稿件将不在公开列表展示，之后仍可修改并重新提交。确定撤回？', '撤回稿件', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await submissionApi.withdraw(id)
+    ElMessage.success('已撤回该稿件')
+    router.push('/my')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '撤回失败，请稍后再试')
+  }
 }
 
 async function load() {
@@ -126,6 +147,7 @@ onMounted(() => {
     <article class="paper-card p-6 animate-fadeup">
       <div class="flex items-center gap-2 text-xs text-[var(--text-soft)]">
         <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ detail.anonymous ? '匿名用户' : detail.author }}</span>
+        <TitleBadge v-if="!detail.anonymous" :title="detail.author_title" />
         <span>{{ detail.created_at }}</span>
         <span v-if="detail.status !== 'approved'" class="rounded bg-warn/20 px-2 py-0.5 text-warn">状态：{{ detail.status }}</span>
       </div>
@@ -176,6 +198,16 @@ onMounted(() => {
       <div v-if="auth.isAdmin" class="mt-3 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
         <button class="inline-flex items-center gap-1 rounded-full bg-[var(--danger)] px-3 py-1 text-sm text-white" @click="takeDownSubmission"><Ban :size="14" /> 快捷撤下稿件</button>
         <button v-if="detail.user_id" class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-sm hover:text-[var(--danger)]" @click="openPenalty(detail.user_id, detail.anonymous ? '匿名用户' : detail.author)"><Gavel :size="14" /> 处罚作者</button>
+      </div>
+
+      <!-- 作者操作：修改 / 撤回（依据后端 can_edit / can_withdraw） -->
+      <div v-if="detail.can_edit || detail.can_withdraw" class="mt-3 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
+        <button v-if="detail.can_edit" class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-sm hover:text-[var(--grape)]" @click="editSubmission">
+          <Pencil :size="14" /> 修改
+        </button>
+        <button v-if="detail.can_withdraw" class="inline-flex items-center gap-1 rounded-full bg-[var(--danger)] px-3 py-1 text-sm text-white" @click="withdrawSubmission">
+          <Undo2 :size="14" /> 撤回
+        </button>
       </div>
     </article>
 

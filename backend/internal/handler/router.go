@@ -67,6 +67,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	pollH := NewPollHandler(pollSvc)
 	interH := NewInteractionHandler(interSvc)
 	imgH := NewImageHandler(d.DB, d.Storage, d.Cfg, d.Cache, d.Store, d.Moderation)
+	initImageLinks(d.Cfg.JWTSecret, d.Store) // 图片访客令牌签名密钥（盲水印写入用户名用）
 	vidH := NewVideoHandler(d.DB, d.Storage, d.Store)
 	metaH := NewMetaHandler(d.DB, d.Cfg, d.Store, resolver)
 	adminH := NewAdminHandler(adminSvc, subSvc)
@@ -132,6 +133,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	// 投稿/评论（私有）
 	r.POST("/api/submissions", perm.Require("POST /api/submissions"), subH.Create)
 	r.PUT("/api/submissions/:id", perm.Require("PUT /api/submissions/:id"), subH.Update)
+	r.POST("/api/submissions/:id/withdraw", perm.Require("POST /api/submissions/:id/withdraw"), subH.Withdraw)
 	r.DELETE("/api/submissions/:id", perm.Require("DELETE /api/submissions/:id"), subH.Delete)
 	r.GET("/api/my/submissions", perm.Require("GET /api/my/submissions"), subH.ListMine)
 	r.POST("/api/submissions/:id/comments", perm.Require("POST /api/submissions/:id/comments"), commentH.Create)
@@ -162,6 +164,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/admin/users", perm.Require("GET /api/admin/users"), adminH.Users)
 	r.GET("/api/admin/users/:id", perm.Require("GET /api/admin/users/:id"), adminH.UserDetail)
 	r.POST("/api/admin/users/:id/role", perm.Require("POST /api/admin/users/:id/role"), adminH.SetRole)
+	r.POST("/api/admin/users/:id/title", perm.Require("POST /api/admin/users/:id/title"), adminH.SetTitle)
 	r.POST("/api/admin/users/:id/resend-verify", perm.Require("POST /api/admin/users/:id/resend-verify"), authH.AdminResendVerify)
 	r.POST("/api/admin/users/:id/activate", perm.Require("POST /api/admin/users/:id/activate"), authH.AdminActivate)
 	r.GET("/api/admin/tags/pending", perm.Require("GET /api/admin/tags/pending"), adminH.PendingTags)

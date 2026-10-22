@@ -138,7 +138,7 @@ func (s *AuthService) Register(req RegisterReq) (*model.User, error) {
 	if needVerify {
 		// 异步发送激活邮件，避免 SMTP 不可达时阻塞注册响应（issue 10）
 		go func() {
-			_ = s.mailer.Send(context.Background(), u.Email, "激活您的校园墙账号",
+			_ = s.mailer.Send(context.Background(), u.Email, "【泰兴中学校园墙】邮箱验证",
 				linkHTML("请点击以下链接完成邮箱验证：", s.verifyLink(u.EmailVerifyToken)))
 		}()
 	}
@@ -196,7 +196,7 @@ func (s *AuthService) Resend(email string) error {
 	u.EmailVerifyToken = newToken()
 	t := time.Now().Add(time.Duration(s.store.Int("email_verify_ttl_hours", 24)) * time.Hour)
 	s.db.Model(&u).Updates(map[string]any{"email_verify_token": u.EmailVerifyToken, "email_verify_expiry": &t})
-	_ = s.mailer.Send(nil, u.Email, "激活您的校园墙账号",
+	_ = s.mailer.Send(context.Background(), u.Email, "【泰兴中学校园墙】邮箱验证",
 		linkHTML("请点击以下链接完成邮箱验证：", s.verifyLink(u.EmailVerifyToken)))
 	return nil
 }
@@ -223,7 +223,7 @@ func (s *AuthService) AdminResendVerify(actor *model.User, targetID uint) error 
 	}
 	email, tok := u.Email, u.EmailVerifyToken
 	go func() {
-		_ = s.mailer.Send(context.Background(), email, "激活您的校园墙账号",
+		_ = s.mailer.Send(context.Background(), email, "【泰兴中学校园墙】邮箱验证",
 			linkHTML("请点击以下链接完成邮箱验证：", s.verifyLink(tok)))
 	}()
 	return nil
@@ -273,7 +273,7 @@ func (s *AuthService) Forgot(email string) error {
 	u.EmailVerifyToken = newToken()
 	t := time.Now().Add(30 * time.Minute)
 	s.db.Model(&u).Updates(map[string]any{"email_verify_token": u.EmailVerifyToken, "email_verify_expiry": &t})
-	_ = s.mailer.Send(nil, u.Email, "重置密码",
+	_ = s.mailer.Send(context.Background(), u.Email, "【泰兴中学校园墙】密码重置",
 		linkHTML("请点击以下链接重置密码：", s.resetLink(u.EmailVerifyToken)))
 	return nil
 }

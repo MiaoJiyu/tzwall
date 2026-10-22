@@ -11,6 +11,7 @@ const tabs = [
   { k: 'pending', l: '审核中' },
   { k: 'need_edit', l: '需修改' },
   { k: 'rejected', l: '未通过' },
+  { k: 'withdrawn', l: '已撤回' },
 ]
 
 async function load() {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -97,12 +98,12 @@ func (h *WatermarkHandler) Extract(c *gin.Context) {
 		return
 	}
 
-	// 嵌入文本为 base64（URL 安全）后的 "i~<IP>~t~<时间戳>"。
+	// 嵌入文本为 base64（URL 安全）后的 "u~<用户名>~i~<IP>~t~<时间戳>"。
 	decoded := text
 	if raw, derr := base64.URLEncoding.DecodeString(text); derr == nil {
 		decoded = string(raw)
 	}
-	ip, ts := parseWatermarkText(decoded)
+	user, ip, ts := parseWatermarkText(decoded)
 	embeddedAt := ""
 	if sec, perr := strconv.ParseInt(ts, 36, 64); perr == nil {
 		embeddedAt = time.Unix(sec, 0).Format("2006-01-02 15:04:05")
@@ -112,16 +113,33 @@ func (h *WatermarkHandler) Extract(c *gin.Context) {
 		"status_code": status,
 		"raw":         text,
 		"decoded":     decoded,
+		"username":    user,
 		"ip":          ip,
+		"ip_addr":     expandIP(ip),
 		"embedded_at": embeddedAt,
 	})
 }
 
-// parseWatermarkText 解析 "i~<IP base36>~t~<时间戳 base36>" 格式。
-func parseWatermarkText(s string) (ip, ts string) {
-	p := strings.Split(s, "~")
-	if len(p) >= 4 && p[0] == "i" && p[2] == "t" {
-		return p[1], p[3]
+// expandIP 将 base36 编码的 IP 还原为 IPv4 点分地址；非 base36 或越界时原样返回。
+// 注意：IPv6/异常来源在嵌入时被压缩为 4 字节哈希指纹，此处只能还原为等长 IPv4 形态（非原始地址）。
+func expandIP(s string) string {
+	n, err := strconv.ParseUint(s, 36, 64)
+	if err != nil || n > 0xFFFFFFFF {
+		return s
 	}
-	return "", ""
+	v := uint32(n)
+	return fmt.Sprintf("%d.%d.%d.%d", v>>24, (v>>16)&0xFF, (v>>8)&0xFF, v&0xFF)
+}
+
+// parseWatermarkText 解析 "u~<用户名>~i~<IP base36>~t~<时间戳 base36>" 格式；
+// 兼容无用户名的旧格式 "i~<IP base36>~t~<时间戳 base36>"。
+func parseWatermarkText(s string) (user, ip, ts string) {
+	p := strings.Split(s, "~")
+	if len(p) >= 6 && p[0] == "u" && p[2] == "i" && p[4] == "t" {
+		return p[1], p[3], p[5]
+	}
+	if len(p) >= 4 && p[0] == "i" && p[2] == "t" {
+		return "", p[1], p[3]
+	}
+	return "", "", ""
 }

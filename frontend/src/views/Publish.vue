@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { submissionApi } from '@/api'
 import TagPicker from '@/components/TagPicker.vue'
 import ImageUploader from '@/components/ImageUploader.vue'
 import VideoUploader from '@/components/VideoUploader.vue'
 
 const router = useRouter()
+const route = useRoute()
+const DRAFT_KEY = 'tzwall_submission_draft'
+
 const title = ref('')
 const content = ref('')
 const selectedTagIds = ref<number[]>([])
@@ -20,9 +23,121 @@ const contact = ref('')
 const availableTags = ref<any[]>([])
 const loading = ref(false)
 
+// 编辑模式：/publish?edit=<id>
+const editingId = ref<number | null>(null)
+
+// 本地草稿
+const draftSavedAt = ref(0)
+const showDraftBanner = ref(false)
+
+function draftSnapshot() {
+  return {
+    title: title.value,
+    content: content.value,
+    selectedTagIds: selectedTagIds.value,
+    customTagNames: customTagNames.value,
+    images: images.value,
+    videos: videos.value,
+    anonymous: anonymous.value,
+    contactVisible: contactVisible.value,
+    contact: contact.value,
+    savedAt: Date.now(),
+  }
+}
+function saveDraft() {
+  if (editingId.value) return
+  if (!title.value.trim() && !content.value.trim() && images.value.length === 0 && videos.value.length === 0) {
+    ElMessage.warning('暂无内容可保存为草稿')
+    return
+  }
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftSnapshot()))
+  ElMessage.success('草稿已保存到本地浏览器')
+}
+function readDraft(): any | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+function applyDraft(d: any) {
+  title.value = d.title || ''
+  content.value = d.content || ''
+  selectedTagIds.value = d.selectedTagIds || []
+  customTagNames.value = d.customTagNames || []
+  images.value = d.images || []
+  videos.value = d.videos || []
+  anonymous.value = !!d.anonymous
+  contactVisible.value = d.contactVisible || 'login'
+  contact.value = d.contact || ''
+}
+function checkDraft() {
+  if (editingId.value) return
+  const d = readDraft()
+  if (d && (d.title || d.content || (d.images || []).length || (d.videos || []).length)) {
+    draftSavedAt.value = d.savedAt || 0
+    showDraftBanner.value = true
+  }
+}
+function restoreDraft() {
+  const d = readDraft()
+  if (d) applyDraft(d)
+  showDraftBanner.value = false
+  ElMessage.success('已恢复草稿')
+}
+async function discardDraft() {
+  try {
+    await ElMessageBox.confirm('确定丢弃本地草稿？此操作不可恢复。', '丢弃草稿', { type: 'warning' })
+  } catch {
+    return
+  }
+  localStorage.removeItem(DRAFT_KEY)
+  showDraftBanner.value = false
+  ElMessage.success('已丢弃草稿')
+}
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY)
+  showDraftBanner.value = false
+}
+function fmtTime(ts: number) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+async function loadForEdit(id: number) {
+  loading.value = true
+  try {
+    const d = await submissionApi.get(id)
+    editingId.value = id
+    title.value = d.title || ''
+    content.value = d.content || ''
+    selectedTagIds.value = (d.tags || []).map((t: any) => t.id)
+    customTagNames.value = []
+    images.value = d.images || []
+    videos.value = d.videos || []
+    anonymous.value = !!d.anonymous
+    contact.value = d.contact || ''
+    contactVisible.value = d.contact_visible || 'login'
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '加载稿件失败')
+    router.replace('/publish')
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(async () => {
   const p = await submissionApi.tags()
   availableTags.value = p.items || []
+  const editId = Number(route.query.edit)
+  if (editId) {
+    await loadForEdit(editId)
+  } else {
+    checkDraft()
+  }
 })
 
 function onAddCustom(name: string) {
@@ -40,7 +155,7 @@ async function submit() {
   }
   loading.value = true
   try {
-    await submissionApi.create({
+    const payload = {
       title: title.value,
       content: content.value,
       tag_ids: selectedTagIds.value,
@@ -50,9 +165,18 @@ async function submit() {
       anonymous: anonymous.value,
       contact: contact.value,
       contact_visible: contactVisible.value,
-    })
-    ElMessage.success('投稿已提交，等待审核')
+    }
+    if (editingId.value) {
+      await submissionApi.update(editingId.value, payload)
+      ElMessage.success('已保存修改，将重新进入审核')
+    } else {
+      await submissionApi.create(payload)
+      clearDraft()
+      ElMessage.success('投稿已提交，等待审核')
+    }
     router.push('/my')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '提交失败，请稍后再试')
   } finally {
     loading.value = false
   }
@@ -61,7 +185,18 @@ async function submit() {
 
 <template>
   <div class="mx-auto max-w-2xl px-4 py-6">
-    <h1 class="mb-5 font-serif-sc text-2xl font-bold text-[var(--grape)]">发布投稿</h1>
+    <h1 class="mb-5 font-serif-sc text-2xl font-bold text-[var(--grape)]">{{ editingId ? '编辑投稿' : '发布投稿' }}</h1>
+
+    <div v-if="editingId" class="mb-4 rounded-lg border border-[var(--grape)]/30 bg-[var(--grape)]/10 p-3 text-sm text-[var(--text-soft)]">
+      正在编辑稿件（#{{ editingId }}）。保存后将重新进入审核，通过前不在公开列表展示。
+    </div>
+    <div v-else-if="showDraftBanner" class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm">
+      <span class="text-[var(--text-soft)]">检测到未提交的本地草稿{{ draftSavedAt ? '（保存于 ' + fmtTime(draftSavedAt) + '）' : '' }}</span>
+      <span class="flex gap-2">
+        <button class="rounded-full bg-grape-500 px-3 py-1 text-xs text-white" @click="restoreDraft">恢复草稿</button>
+        <button class="rounded-full border border-[var(--border)] px-3 py-1 text-xs" @click="discardDraft">丢弃</button>
+      </span>
+    </div>
 
     <div class="paper-card space-y-5 p-6">
       <div>
@@ -105,9 +240,19 @@ async function submit() {
         <input type="checkbox" v-model="anonymous" /> 匿名投稿（公开页显示为“匿名用户”）
       </label>
 
-      <button class="btn-grape w-full rounded-full py-2.5 font-medium" :disabled="loading" @click="submit">
-        {{ loading ? '提交中…' : '提交投稿' }}
-      </button>
+      <div class="flex items-center gap-3">
+        <button
+          v-if="!editingId"
+          class="rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-medium hover:text-[var(--grape)] disabled:opacity-60"
+          :disabled="loading"
+          @click="saveDraft"
+        >
+          保存草稿
+        </button>
+        <button class="btn-grape flex-1 rounded-full py-2.5 font-medium" :disabled="loading" @click="submit">
+          {{ loading ? '提交中…' : (editingId ? '保存修改' : '提交投稿') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

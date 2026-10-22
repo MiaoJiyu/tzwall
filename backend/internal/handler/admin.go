@@ -97,6 +97,7 @@ func (h *AdminHandler) UserDetail(c *gin.Context) {
 		"email":          u.Email,
 		"email_verified": u.EmailVerified,
 		"role":           u.Role,
+		"title":          u.Title,
 		"status":         u.Status,
 		"real_name":      u.RealName,
 		"school":         u.School,
@@ -123,6 +124,28 @@ func (h *AdminHandler) SetRole(c *gin.Context) {
 		return
 	}
 	if err := h.svc.SetRole(u, uint(id), model.Role(req.Role)); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
+// SetTitle 设置/修改/清除用户称号（仅超管；title 为空表示清除）。
+func (h *AdminHandler) SetTitle(c *gin.Context) {
+	u := requireSuperAdmin(c)
+	if u == nil {
+		return
+	}
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req struct {
+		Title string `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	if err := h.svc.SetTitle(u, uint(id), req.Title); err != nil {
 		code, _ := errs.As(err)
 		response.FailCode(c, code, err.Error())
 		return

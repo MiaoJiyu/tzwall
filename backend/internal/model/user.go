@@ -45,6 +45,9 @@ type User struct {
 	Nickname string `gorm:"size:64" json:"nickname,omitempty"`
 	Avatar   string `gorm:"size:512" json:"avatar,omitempty"`
 
+	// Title 用户称号（由超级管理员授予，展示于用户名后）
+	Title string `gorm:"size:64" json:"title,omitempty"`
+
 	Role Role `gorm:"size:20;default:user;index" json:"role"`
 
 	EmailVerified     bool       `gorm:"default:false" json:"email_verified"`

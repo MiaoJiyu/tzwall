@@ -282,7 +282,9 @@ func reasonOr(s, def string) string {
 	return strings.TrimSpace(s)
 }
 
-// Update 编辑重提（仅“需要修改”状态），保留修改历史。
+// Update 作者修改自己的稿件并重新提交审核。
+// 允许状态：待审核/已通过/已驳回/需要修改/已撤回；已下架（机审违规）不可修改。
+// 修改后进入待审核、清空历史审核意见并重置机审状态，保留修改历史。
 func (s *SubmissionService) Update(user *model.User, id uint, req CreateSubmissionReq) (*model.Submission, error) {
 	var sub model.Submission
 	if err := s.db.First(&sub, id).Error; err != nil {
@@ -291,10 +293,21 @@ func (s *SubmissionService) Update(user *model.User, id uint, req CreateSubmissi
 	if sub.UserID != user.ID {
 		return nil, errs.New(errs.CodeForbidden, nil)
 	}
-	if sub.Status != model.StatusNeedEdit {
+	if sub.AuditStatus == model.ModerationBlock {
+		return nil, errs.New(errs.ErrValidation, fmt.Errorf("该稿件已被下架，无法修改"))
+	}
+	switch sub.Status {
+	case model.StatusPending, model.StatusApproved, model.StatusRejected, model.StatusNeedEdit, model.StatusWithdrawn:
+	default:
+		return nil, errs.New(errs.ErrValidation, fmt.Errorf("当前状态不可修改"))
+	}
+	if strings.TrimSpace(req.Title) == "" {
 		return nil, errs.New(errs.ErrValidation, nil)
 	}
-	// 保留历史
+	if strings.TrimSpace(req.Content) == "" && len(req.ImageIDs) == 0 && len(req.VideoIDs) == 0 {
+		return nil, errs.New(errs.ErrValidation, nil)
+	}
+	// 保留修改历史
 	s.db.Create(&model.SubmissionRevision{
 		SubmissionID: sub.ID, Title: sub.Title, Content: sub.Content, EditorID: user.ID, CreatedAt: time.Now(),
 	})
@@ -304,9 +317,42 @@ func (s *SubmissionService) Update(user *model.User, id uint, req CreateSubmissi
 	sub.ContactVisible = req.ContactVisible
 	sub.Anonymous = req.Anonymous
 	sub.Status = model.StatusPending
+	sub.AdminNote = ""
+	sub.AuditStatus = model.ModerationReview
 	sub.RevisionCount++
-	s.db.Save(&sub)
+	if err := s.db.Save(&sub).Error; err != nil {
+		return nil, errs.New(errs.CodeInternal, err)
+	}
+	// 关联编辑时新上传的媒体（追加；已关联的不受影响）
+	if len(req.ImageIDs) > 0 {
+		s.db.Model(&model.SubmissionImage{}).Where("id IN ? AND submission_id IS NULL", req.ImageIDs).Update("submission_id", sub.ID)
+	}
+	if len(req.VideoIDs) > 0 {
+		s.db.Model(&model.SubmissionVideo{}).Where("id IN ? AND submission_id IS NULL", req.VideoIDs).Update("submission_id", sub.ID)
+	}
+	// 回读关联，保证响应包含标签、图片与视频
+	s.db.Preload("Tags").
+		Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
+		Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
+		First(&sub, sub.ID)
 	return &sub, nil
+}
+
+// Withdraw 作者撤回自己的稿件（仅待审核/已通过可撤回）。撤回后不在公开列表/详情展示，可后续修改重新提交。
+func (s *SubmissionService) Withdraw(user *model.User, id uint) error {
+	var sub model.Submission
+	if err := s.db.First(&sub, id).Error; err != nil {
+		return errs.New(errs.ErrValidation, nil)
+	}
+	if sub.UserID != user.ID {
+		return errs.New(errs.CodeForbidden, nil)
+	}
+	switch sub.Status {
+	case model.StatusPending, model.StatusApproved:
+	default:
+		return errs.New(errs.ErrValidation, fmt.Errorf("当前状态不可撤回"))
+	}
+	return s.db.Model(&sub).Update("status", model.StatusWithdrawn).Error
 }
 
 // Delete 删除自己的投稿（软删），图片设为私有（不同步删除原图）。

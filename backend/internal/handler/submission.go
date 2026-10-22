@@ -49,6 +49,21 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 	if viewer != nil {
 		viewerUID = int(viewer.ID)
 	}
+	authorTitle := ""
+	if !sub.Anonymous && sub.User != nil {
+		authorTitle = sub.User.Title
+	}
+	// 作者可执行的操作（权威判定，前端据此展示“修改/撤回”）
+	canEdit, canWithdraw := false, false
+	if viewer != nil && sub.UserID == viewer.ID && sub.AuditStatus != model.ModerationBlock {
+		switch sub.Status {
+		case model.StatusPending, model.StatusApproved, model.StatusRejected, model.StatusNeedEdit, model.StatusWithdrawn:
+			canEdit = true
+		}
+		if sub.Status == model.StatusPending || sub.Status == model.StatusApproved {
+			canWithdraw = true
+		}
+	}
 	imgs := make([]gin.H, 0, len(sub.Images))
 	for _, im := range sub.Images {
 		imgs = append(imgs, gin.H{
@@ -79,6 +94,7 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 		"content":         sub.Content,
 		"anonymous":       sub.Anonymous,
 		"author":          author,
+		"author_title":    authorTitle,
 		"status":          sub.Status,
 		"admin_note":      sub.AdminNote,
 		"contact":         contact,
@@ -93,6 +109,8 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 		"videos":          vids,
 		"created_at":      sub.CreatedAt,
 		"user_id":         sub.UserID,
+		"can_edit":        canEdit,
+		"can_withdraw":    canWithdraw,
 	}
 	if viewer != nil && viewer.IsAdmin() && realAuthor != "" {
 		v["real_author"] = realAuthor
@@ -137,6 +155,18 @@ func (h *SubmissionHandler) Update(c *gin.Context) {
 		return
 	}
 	response.OK(c, submissionView(sub, u))
+}
+
+// Withdraw 作者撤回自己的投稿。
+func (h *SubmissionHandler) Withdraw(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := h.svc.Withdraw(u, uint(id)); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
 }
 
 // Delete 删除投稿。

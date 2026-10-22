@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { User, Mail, Lock, School, Phone } from 'lucide-vue-next'
+import { User, Mail, Lock, School, Phone, Loader2, RotateCcw } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { authApi } from '@/api'
 import { useMetaStore } from '@/stores/meta'
@@ -22,6 +22,15 @@ const form = reactive({
   phone: '',
 })
 
+// 注册成功后的邮箱激活状态
+const registered = ref(false)
+const registeredEmail = ref('')
+const resendLoading = ref(false)
+const resendMsg = ref('')
+const resendOk = ref(false)
+const cooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
 async function submit() {
   if (!form.username || !form.password || !form.email || !form.real_name || !form.school) {
     ElMessage.warning('请填写必填项（用户名/密码/邮箱/真实姓名/就读学校）')
@@ -34,14 +43,55 @@ async function submit() {
   loading.value = true
   try {
     await authApi.register({ ...form, agree: true })
-    ElMessage.success(meta.site.features?.mailer ? '注册成功，请前往邮箱激活' : '注册成功，可直接登录')
-    router.push('/login')
+    if (meta.site.features?.mailer) {
+      // 需邮箱激活：停留激活面板，引导查收/重发，而非直接跳登录
+      registeredEmail.value = form.email
+      registered.value = true
+      ElMessage.success('注册成功，激活邮件已发送，请查收')
+    } else {
+      ElMessage.success('注册成功，可直接登录')
+      router.push('/login')
+    }
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || e?.message || '注册失败，请稍后再试')
   } finally {
     loading.value = false
   }
 }
+
+// 再次发送激活邮件：含发送中/成功/失败反馈与冷却，避免重复操作
+async function resend() {
+  if (resendLoading.value || cooldown.value > 0) return
+  resendLoading.value = true
+  resendMsg.value = ''
+  try {
+    await authApi.resendVerify({ email: registeredEmail.value })
+    resendOk.value = true
+    resendMsg.value = '已重新发送，请查收邮箱（记得查看垃圾箱）'
+    startCooldown(60)
+  } catch (e: any) {
+    resendOk.value = false
+    resendMsg.value = e?.response?.data?.message || e?.message || '发送失败，请稍后再试'
+  } finally {
+    resendLoading.value = false
+  }
+}
+
+function startCooldown(sec: number) {
+  cooldown.value = sec
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    cooldown.value -= 1
+    if (cooldown.value <= 0 && cooldownTimer) {
+      clearInterval(cooldownTimer)
+      cooldownTimer = null
+    }
+  }, 1000)
+}
+
+onBeforeUnmount(() => {
+  if (cooldownTimer) clearInterval(cooldownTimer)
+})
 </script>
 
 <template>
@@ -49,6 +99,36 @@ async function submit() {
     <h1 class="mb-1 text-center font-serif-sc text-2xl font-bold text-[var(--grape)]">创建账号</h1>
     <p class="mb-6 text-center text-sm text-[var(--text-soft)]">加入泰兴中学校园墙</p>
 
+    <!-- 激活提示面板：注册成功且需邮箱激活时展示 -->
+    <div v-if="registered" class="paper-card space-y-4 p-6 text-center">
+      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--grape)]/10">
+        <Mail :size="24" class="text-[var(--grape)]" />
+      </div>
+      <h2 class="font-serif-sc text-lg font-bold">注册成功，请激活邮箱</h2>
+      <p class="text-sm text-[var(--text-soft)]">
+        激活邮件已发送至 <span class="font-medium text-[var(--text)]">{{ registeredEmail }}</span>，请查收并点击邮件中的链接完成激活。
+      </p>
+      <div class="rounded-lg border border-warn/30 bg-warn/10 p-3 text-left text-xs leading-relaxed text-[var(--text-soft)]">
+        如果收不到邮件，请检查邮件是否被系统拦截或识别为垃圾邮件（QQ邮箱有这个问题）。
+      </div>
+      <button
+        class="btn-grape inline-flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-sm font-medium disabled:opacity-60"
+        :disabled="resendLoading || cooldown > 0"
+        @click="resend"
+      >
+        <Loader2 v-if="resendLoading" :size="16" class="animate-spin" />
+        <RotateCcw v-else :size="16" />
+        <span v-if="resendLoading">发送中…</span>
+        <span v-else-if="cooldown > 0">{{ cooldown }}s 后可重发</span>
+        <span v-else>再次发送激活邮件</span>
+      </button>
+      <p v-if="resendMsg" class="text-xs" :class="resendOk ? 'text-[var(--jade)]' : 'text-[var(--danger)]'">{{ resendMsg }}</p>
+      <p class="text-sm text-[var(--text-soft)]">
+        已完成激活？<router-link to="/login" class="text-[var(--grape)]">去登录</router-link>
+      </p>
+    </div>
+
+    <template v-else>
     <div class="paper-card space-y-4 p-6">
       <div class="grid grid-cols-2 gap-3">
         <div class="relative">
@@ -93,6 +173,7 @@ async function submit() {
     <p class="mt-4 text-center text-sm text-[var(--text-soft)]">
       已有账号？<router-link to="/login" class="text-[var(--grape)]">去登录</router-link>
     </p>
+    </template>
   </div>
 </template>
 

@@ -128,16 +128,33 @@ func buildMessage(from, to, subject, htmlBody string) []byte {
 	buf.WriteString("\r\n")
 	buf.WriteString("--" + boundary + "\r\n")
 	buf.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
-	buf.WriteString("Content-Transfer-Encoding: 8bit\r\n")
+	buf.WriteString("Content-Transfer-Encoding: base64\r\n")
 	buf.WriteString("\r\n")
-	buf.WriteString(plain + "\r\n")
+	buf.WriteString(b64wrap(plain) + "\r\n")
 	buf.WriteString("--" + boundary + "\r\n")
 	buf.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
-	buf.WriteString("Content-Transfer-Encoding: 8bit\r\n")
+	buf.WriteString("Content-Transfer-Encoding: base64\r\n")
 	buf.WriteString("\r\n")
-	buf.WriteString(htmlBody + "\r\n")
+	buf.WriteString(b64wrap(htmlBody) + "\r\n")
 	buf.WriteString("--" + boundary + "--\r\n")
 	return buf.Bytes()
+}
+
+// b64wrap 对正文做 Base64 编码并按 RFC 2045 以 76 字符折行，避免 8bit 中文在 163/QQ 中继中被损坏。
+func b64wrap(s string) string {
+	enc := base64.StdEncoding.EncodeToString([]byte(s))
+	var b strings.Builder
+	for i := 0; i < len(enc); i += 76 {
+		end := i + 76
+		if end > len(enc) {
+			end = len(enc)
+		}
+		if b.Len() > 0 {
+			b.WriteString("\r\n")
+		}
+		b.WriteString(enc[i:end])
+	}
+	return b.String()
 }
 
 // rfc2047 对非 ASCII 头字段做 Base64 编码（=?UTF-8?B?...?=），避免中文主题/发件人名乱码或被风控。

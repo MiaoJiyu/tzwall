@@ -87,6 +87,7 @@ var Endpoints = []Endpoint{
 	ep("GET", "/api/tags", GroupContent, "标签列表", true),
 	ep("POST", "/api/submissions", GroupContent, "发布投稿", false, model.RoleUser, model.RoleAdmin),
 	ep("PUT", "/api/submissions/:id", GroupContent, "编辑投稿", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/submissions/:id/withdraw", GroupContent, "撤回投稿", false, model.RoleUser, model.RoleAdmin),
 	ep("DELETE", "/api/submissions/:id", GroupContent, "删除投稿", false, model.RoleUser, model.RoleAdmin),
 	ep("GET", "/api/my/submissions", GroupContent, "我的投稿", false, model.RoleUser, model.RoleAdmin),
 
@@ -153,6 +154,7 @@ var Endpoints = []Endpoint{
 	ep("GET", "/api/admin/users", GroupSystem, "用户列表", false, model.RoleAdmin),
 	ep("GET", "/api/admin/users/:id", GroupSystem, "用户详情", false, model.RoleAdmin),
 	ep("POST", "/api/admin/users/:id/role", GroupSystem, "变更角色", false, model.RoleSuperAdmin),
+	ep("POST", "/api/admin/users/:id/title", GroupSystem, "设置用户称号", false, model.RoleSuperAdmin),
 	ep("POST", "/api/admin/users/:id/resend-verify", GroupSystem, "重发验证邮件", false, model.RoleAdmin),
 	ep("POST", "/api/admin/users/:id/activate", GroupSystem, "直接激活用户", false, model.RoleSuperAdmin),
 	ep("GET", "/api/admin/tags/pending", GroupContent, "待审标签", false, model.RoleAdmin),

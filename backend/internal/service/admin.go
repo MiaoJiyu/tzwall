@@ -95,6 +95,26 @@ func (s *AdminService) SetRole(actor *model.User, targetID uint, role model.Role
 	return nil
 }
 
+// SetTitle 设置/修改/清除用户称号（仅超管；空字符串表示清除）。
+func (s *AdminService) SetTitle(actor *model.User, targetID uint, title string) error {
+	if !actor.IsSuperAdmin() {
+		return errs.New(errs.CodeForbidden, nil)
+	}
+	title = strings.TrimSpace(title)
+	if len([]rune(title)) > 16 {
+		return errs.New(errs.ErrValidation, fmt.Errorf("称号不能超过 16 字"))
+	}
+	var target model.User
+	if err := s.db.First(&target, targetID).Error; err != nil {
+		return errs.New(errs.ErrValidation, nil)
+	}
+	if err := s.db.Model(&target).Update("title", title).Error; err != nil {
+		return errs.New(errs.CodeInternal, err)
+	}
+	Audit(s.db, actor.ID, "set_title", "user", itoa(targetID), "title="+title)
+	return nil
+}
+
 // PendingTags 待审核标签。
 func (s *AdminService) PendingTags() ([]model.Tag, error) {
 	var tags []model.Tag

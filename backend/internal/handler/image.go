@@ -124,7 +124,7 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 func (h *ImageHandler) Proxy(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
-	// 图片链接为纯路径，无需签名校验（内容已审核且对象置私有，仅经授权展示时返回）。
+	// 图片链接携带签名访客令牌（u/e/s），代理据此识别查看者身份用于盲水印。
 	var im model.SubmissionImage
 	if err := h.db.First(&im, id).Error; err != nil {
 		response.FailCode(c, errs.ErrValidation, "")
@@ -169,6 +169,15 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 	wmCfg := h.store.Get("image_blind_watermark")
 	useWatermark := strings.HasPrefix(im.ContentType, "image/") && (wmCfg == "" || wmCfg == "true")
 
+	// 访客身份：优先取图片链接签名令牌（<img> 无法携带 Authorization 头），
+	// 其次取中间件解析到的登录态；用于盲水印写入用户名。
+	viewerUID := viewerUIDFromToken(c)
+	if viewerUID == 0 {
+		if cu := middleware.CurrentUser(c); cu != nil {
+			viewerUID = cu.ID
+		}
+	}
+
 	// 缓存键仅按图片 ID：仅在无水印时使用共享缓存
 	if !useWatermark && h.cache != nil {
 		if v, ok := h.cache.Get(cacheKey); ok {
@@ -183,7 +192,7 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 	var r io.ReadCloser
 	var err error
 	if useWatermark {
-		rule := blindWatermarkRule(c)
+		rule := h.blindWatermarkRule(c, viewerUID)
 		r, err = h.storage.ProcessedGet(c.Request.Context(), im.StorageKey, rule)
 		if err != nil {
 			// 图片处理不可用时回退原图，保证仍可显示
@@ -273,12 +282,36 @@ func (h *ImageHandler) SyncPrivate(c *gin.Context) {
 }
 
 // blindWatermarkRule 构造 COS 数据万象盲水印处理规则。
-// 文本 = "i~<IP base36>~t~<时间戳 base36>"，采用 version 3.0 文字盲水印，
+// 文本 = "u~<用户名|游客>~i~<IP base36>~t~<时间戳 base36>"，采用 version 3.0 文字盲水印，
 // 以便识别接口（/api/admin/watermark/extract）通过 watermark/4 以文本形式直接取回。
-func blindWatermarkRule(c *gin.Context) string {
-	text := "i~" + compactIP(middleware.ClientIP(c)) + "~t~" + strconv.FormatInt(time.Now().Unix(), 36)
+func (h *ImageHandler) blindWatermarkRule(c *gin.Context, viewerUID uint) string {
+	user := "游客"
+	if viewerUID > 0 {
+		if name := h.usernameByID(viewerUID); name != "" {
+			user = name
+		}
+	}
+	text := "u~" + user + "~i~" + compactIP(middleware.ClientIP(c)) + "~t~" + strconv.FormatInt(time.Now().Unix(), 36)
 	b64 := base64.URLEncoding.EncodeToString([]byte(text))
 	return "watermark/3/type/3/version/3.0/text/" + b64
+}
+
+// usernameByID 按用户 ID 取用户名（带短缓存，降低图片代理的数据库压力）。
+func (h *ImageHandler) usernameByID(uid uint) string {
+	ck := fmt.Sprintf("wmuser:%d", uid)
+	if h.cache != nil {
+		if v, ok := h.cache.Get(ck); ok {
+			return v
+		}
+	}
+	var u model.User
+	if err := h.db.First(&u, uid).Error; err != nil || u.Username == "" {
+		return ""
+	}
+	if h.cache != nil {
+		h.cache.Set(ck, u.Username, 10*time.Minute)
+	}
+	return u.Username
 }
 
 // compactIP 将 IP 压缩为 base36：IPv4 转整数；其他类型取哈希前 4 字节。

@@ -8,10 +8,11 @@ import (
 type SubmissionStatus string
 
 const (
-	StatusPending  SubmissionStatus = "pending"   // 正在审核
-	StatusApproved SubmissionStatus = "approved"  // 通过
-	StatusRejected SubmissionStatus = "rejected"  // 不通过
-	StatusNeedEdit SubmissionStatus = "need_edit" // 需要修改
+	StatusPending   SubmissionStatus = "pending"   // 正在审核
+	StatusApproved  SubmissionStatus = "approved"  // 通过
+	StatusRejected  SubmissionStatus = "rejected"  // 不通过
+	StatusNeedEdit  SubmissionStatus = "need_edit" // 需要修改
+	StatusWithdrawn SubmissionStatus = "withdrawn" // 作者已撤回（不公开，可修改后重新提交）
 )
 
 // 标签状态
@@ -124,6 +125,7 @@ type Comment struct {
 
 	Children []*Comment `gorm:"-" json:"children,omitempty"`
 	Username string     `gorm:"-" json:"username,omitempty"`
+	Title    string     `gorm:"-" json:"title,omitempty"` // 作者称号（展示用）
 }
 
 // Reaction 点赞/点踩。同一用户对同一目标唯一态度。

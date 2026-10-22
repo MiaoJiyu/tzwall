@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Reply, Trash2, Flag, Ban, Gavel, RotateCcw } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import TitleBadge from '@/components/TitleBadge.vue'
 
 const props = defineProps<{ node: any; submissionId: number }>()
 const emit = defineEmits(['reply', 'delete', 'report', 'moderate-remove', 'moderate-restore', 'penalty'])
@@ -14,8 +15,9 @@ const auth = useAuthStore()
         {{ node.deleted ? '—' : (node.username || '匿')?.[0] || '匿' }}
       </div>
       <div class="flex-1">
-        <div class="text-sm font-medium text-[var(--text)]">
-          {{ node.deleted ? (auth.isAdmin ? node.username : '匿名用户') : node.username }}
+        <div class="flex items-center gap-1.5 text-sm font-medium text-[var(--text)]">
+          <span>{{ node.deleted ? (auth.isAdmin ? node.username : '匿名用户') : node.username }}</span>
+          <TitleBadge v-if="!node.deleted" :title="node.title" />
         </div>
         <!-- 已删除：管理员见原文（标注已删除），普通用户仅见占位文案 -->
         <div v-if="!node.deleted" class="mt-0.5 text-sm leading-relaxed text-[var(--text-soft)]">{{ node.content }}</div>

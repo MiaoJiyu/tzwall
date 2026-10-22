@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Search, MailPlus, Check } from 'lucide-vue-next'
+import { Search, MailPlus, Check, Award } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -60,6 +60,31 @@ async function openDetail(u: any) {
 }
 
 onMounted(load)
+
+// 称号管理（仅超级管理员）
+const titleDialog = ref(false)
+const titleUser = ref<any>(null)
+const titleText = ref('')
+const titleSaving = ref(false)
+function openTitle(u: any) {
+  titleUser.value = u
+  titleText.value = u.title || ''
+  titleDialog.value = true
+}
+async function saveTitle() {
+  if (!titleUser.value) return
+  titleSaving.value = true
+  try {
+    await adminApi.setUserTitle(titleUser.value.id, titleText.value.trim())
+    ElMessage.success(titleText.value.trim() ? '已设置称号' : '已清除称号')
+    titleDialog.value = false
+    load()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '设置失败')
+  } finally {
+    titleSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -79,6 +104,7 @@ onMounted(load)
               <th class="py-2">邮箱</th>
               <th class="py-2">邮箱验证</th>
               <th class="py-2">角色</th>
+              <th class="py-2">称号</th>
               <th class="py-2">状态</th>
               <th class="py-2" v-if="auth.isAdmin">操作</th>
             </tr>
@@ -93,6 +119,10 @@ onMounted(load)
               </td>
               <td class="py-2">
                 <span class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">{{ u.role }}</span>
+              </td>
+              <td class="py-2">
+                <span v-if="u.title" class="rounded-full border border-[var(--grape)]/30 bg-[var(--grape)]/10 px-2 py-0.5 text-xs text-[var(--grape)]">{{ u.title }}</span>
+                <span v-else class="text-[var(--text-soft)]">—</span>
               </td>
               <td class="py-2 text-[var(--text-soft)]">{{ u.status }}</td>
               <td class="py-2" v-if="auth.isAdmin">
@@ -116,6 +146,13 @@ onMounted(load)
                     @click="activate(u)"
                   >
                     <Check :size="13" /> 直接激活
+                  </button>
+                  <button
+                    v-if="auth.user?.role === 'super_admin'"
+                    class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-xs hover:text-[var(--grape)]"
+                    @click="openTitle(u)"
+                  >
+                    <Award :size="13" /> 称号
                   </button>
                   <el-dropdown v-if="auth.user?.role === 'super_admin'" trigger="click" @command="(r: string) => setRole(u, r)">
                     <button class="rounded-full border border-[var(--border)] px-3 py-1 text-xs">设为</button>
@@ -165,6 +202,8 @@ onMounted(load)
             <span class="col-span-2">{{ detail.phone || '—' }}</span>
             <span class="text-[var(--text-soft)]">角色</span>
             <span class="col-span-2">{{ detail.role }}</span>
+            <span class="text-[var(--text-soft)]">称号</span>
+            <span class="col-span-2">{{ detail.title || '—' }}</span>
             <span class="text-[var(--text-soft)]">状态</span>
             <span class="col-span-2">{{ detail.status }}</span>
             <span class="text-[var(--text-soft)]">注册时间</span>
@@ -172,6 +211,30 @@ onMounted(load)
           </div>
         </template>
       </div>
+    </el-dialog>
+
+    <el-dialog v-model="titleDialog" title="设置用户称号" width="400px">
+      <div v-if="titleUser" class="space-y-3 text-sm">
+        <p class="text-[var(--text-soft)]">
+          为用户 <span class="font-medium text-[var(--text)]">{{ titleUser.username }}</span> 设置称号；
+          <span class="text-[var(--text)]">留空并保存即清除</span>。称号将展示在其用户名后（投稿、评论等处）。
+        </p>
+        <input
+          v-model="titleText"
+          maxlength="16"
+          placeholder="请输入称号，如：管理员 / 优秀创作者"
+          class="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--grape)]"
+        />
+        <p class="text-xs text-[var(--text-soft)]">最多 16 字，仅超级管理员可操作。</p>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <button class="rounded-full border border-[var(--border)] px-4 py-2 text-sm" @click="titleDialog = false">取消</button>
+          <button class="btn-grape rounded-full px-4 py-2 text-sm text-white disabled:opacity-60" :disabled="titleSaving" @click="saveTitle">
+            {{ titleSaving ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </template>
     </el-dialog>
   </div>
 </template>
