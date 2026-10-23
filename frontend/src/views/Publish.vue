@@ -2,14 +2,17 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { submissionApi } from '@/api'
+import { submissionApi, pollApi } from '@/api'
+import { useMetaStore } from '@/stores/meta'
 import TagPicker from '@/components/TagPicker.vue'
 import ImageUploader from '@/components/ImageUploader.vue'
 import VideoUploader from '@/components/VideoUploader.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import PollPicker from '@/components/PollPicker.vue'
 
 const router = useRouter()
 const route = useRoute()
+const meta = useMetaStore()
 const DRAFT_KEY = 'tzwall_submission_draft'
 
 const title = ref('')
@@ -23,6 +26,19 @@ const contactVisible = ref('login')
 const contact = ref('')
 const availableTags = ref<any[]>([])
 const loading = ref(false)
+
+// 关联投票（在投稿流程中统一选择）
+const myPolls = ref<any[]>([])
+const pollSel = ref<number[]>([])
+const pollMax = ref(3)
+async function loadMyPolls() {
+  try {
+    const r: any = await pollApi.mine()
+    myPolls.value = r.items || []
+  } catch {
+    myPolls.value = []
+  }
+}
 
 // 编辑模式：/publish?edit=<id>
 const editingId = ref<number | null>(null)
@@ -42,6 +58,7 @@ function draftSnapshot() {
     anonymous: anonymous.value,
     contactVisible: contactVisible.value,
     contact: contact.value,
+    pollSel: pollSel.value,
     savedAt: Date.now(),
   }
 }
@@ -72,6 +89,7 @@ function applyDraft(d: any) {
   anonymous.value = !!d.anonymous
   contactVisible.value = d.contactVisible || 'login'
   contact.value = d.contact || ''
+  pollSel.value = d.pollSel || []
 }
 function checkDraft() {
   if (editingId.value) return
@@ -122,6 +140,12 @@ async function loadForEdit(id: number) {
     anonymous.value = !!d.anonymous
     contact.value = d.contact || ''
     contactVisible.value = d.contact_visible || 'login'
+    try {
+      const lp: any = await pollApi.submissionPolls(id)
+      pollSel.value = (lp.items || []).map((x: any) => x.id)
+    } catch {
+      pollSel.value = []
+    }
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '加载稿件失败')
     router.replace('/publish')
@@ -131,6 +155,8 @@ async function loadForEdit(id: number) {
 }
 
 onMounted(async () => {
+  pollMax.value = meta.site?.limits?.poll_per_submission ?? 3
+  await loadMyPolls()
   const p = await submissionApi.tags()
   availableTags.value = p.items || []
   const editId = Number(route.query.edit)
@@ -169,12 +195,25 @@ async function submit() {
     }
     if (editingId.value) {
       await submissionApi.update(editingId.value, payload)
+      try {
+        await pollApi.setSubmissionPolls(editingId.value, pollSel.value)
+      } catch {
+        /* 关联失败已由拦截器提示（如越权） */
+      }
       ElMessage.success('已保存修改，将重新进入审核')
     } else {
       const created: any = await submissionApi.create(payload)
+      const sid = created?.id
+      if (sid && pollSel.value.length) {
+        try {
+          await pollApi.setSubmissionPolls(sid, pollSel.value)
+        } catch {
+          /* 关联失败已由拦截器提示 */
+        }
+      }
       clearDraft()
-      ElMessage.success('投稿已提交，可在详情页为该投稿关联投票')
-      router.push(created?.id ? '/submission/' + created.id : '/my')
+      ElMessage.success('投稿已提交')
+      router.push(sid ? '/submission/' + sid : '/my')
       return
     }
     router.push('/my')
@@ -245,6 +284,14 @@ async function submit() {
       <label class="flex items-center gap-2 text-sm">
         <input type="checkbox" v-model="anonymous" /> 匿名投稿（公开页显示为“匿名用户”）
       </label>
+
+      <div>
+        <label class="mb-1 flex items-center justify-between text-sm font-medium">
+          <span>关联投票（可选）</span>
+          <span class="text-xs font-normal text-[var(--text-soft)]">最多 {{ pollMax }} 个</span>
+        </label>
+        <PollPicker v-model="pollSel" :polls="myPolls" :max="pollMax" :current-submission-id="editingId || undefined" />
+      </div>
 
       <div class="flex items-center gap-3">
         <button

@@ -48,6 +48,7 @@ var ConfigItems = []ConfigItem{
 	{Key: "site_name", Group: GroupSite, Label: "站点名称", Type: TypeString, Default: "泰兴中学校园墙", Desc: "显示在标题栏与登录页"},
 	{Key: "site_url", Group: GroupSite, Label: "站点访问地址", Type: TypeString, Default: "", Desc: "用于生成邮件中的激活/重置链接，如 https://wall.example.com；留空则回退 http://localhost"},
 	{Key: "agreement_required", Group: GroupSite, Label: "强制确认协议", Type: TypeBool, Default: "true", Desc: "协议更新后强制已登录用户重新确认"},
+	{Key: "home_page_size", Group: GroupSite, Label: "首页每页投稿数", Type: TypeInt, Default: "10", Min: 1, Max: 50, Desc: "首页投稿列表每页显示数量；保存后即时生效"},
 
 	// 注册与登录
 	{Key: "register_rph", Group: GroupAccount, Label: "每小时注册上限（已迁移）", Type: TypeInt, Default: "20", Min: 0, Max: 10000, Desc: "已迁移至「访问权限」矩阵按端点配置，此处不再生效"},

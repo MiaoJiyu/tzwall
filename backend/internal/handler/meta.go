@@ -52,6 +52,7 @@ func (h *MetaHandler) Site(c *gin.Context) {
 		},
 		"limits": gin.H{
 			"poll_per_submission": h.store.Int("poll_max_per_submission", 3),
+			"home_page_size":      h.store.Int("home_page_size", 10),
 		},
 		"footer_icp":         h.store.Get("footer_icp"),
 		"footer_psba":        h.store.Get("footer_psba"),

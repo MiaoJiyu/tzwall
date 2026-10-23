@@ -364,7 +364,7 @@ func (s *PollService) SetSubmissionPolls(actor *model.User, submissionID uint, p
 		return errs.New(errs.CodeNotFound, nil)
 	}
 	if sub.UserID != actor.ID && !actor.IsAdmin() {
-		return errs.New(errs.CodeForbidden, nil)
+		return errs.New(errs.CodeForbidden, fmt.Errorf("仅投稿者本人或管理员可关联/取消关联投票"))
 	}
 	seen := map[uint]bool{}
 	ids := make([]uint, 0, len(pollIDs))

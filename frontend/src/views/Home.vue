@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Flame, Clock, Plus, Search } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { submissionApi, adminApi, announcementApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { useMetaStore } from '@/stores/meta'
 import SubmissionCard from '@/components/SubmissionCard.vue'
 import PollWidget from '@/components/PollWidget.vue'
 import AnnouncementBoard from '@/components/AnnouncementBoard.vue'
@@ -12,6 +13,7 @@ import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const meta = useMetaStore()
 
 // 首页公告（常驻于校园热榜下方）；要求确认者首次展示时弹窗，按用户记录确认态。
 const announcements = ref<any[]>([])
@@ -53,7 +55,8 @@ async function confirmAnn() {
 const items = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
-const pageSize = 20
+// 首页每页投稿数：后台可配置（默认 10）
+const pageSize = computed(() => Number(meta.site?.limits?.home_page_size) || 10)
 const sort = ref('latest')
 const keyword = ref('')
 const activeTag = ref('')
@@ -61,7 +64,7 @@ const hot = ref<any[]>([])
 const tags = ref<any[]>([])
 
 async function load() {
-  const p = await submissionApi.list({ sort: sort.value, keyword: keyword.value, tag: activeTag.value, page: page.value, page_size: pageSize })
+  const p = await submissionApi.list({ sort: sort.value, keyword: keyword.value, tag: activeTag.value, page: page.value, page_size: pageSize.value })
   items.value = p.items
   total.value = p.total
 }
@@ -90,6 +93,11 @@ function onSearch() {
 }
 
 watch(() => page.value, load)
+// 后台调整每页数量后：回到第一页并重新加载
+watch(pageSize, () => {
+  page.value = 1
+  load()
+})
 
 // 管理员快捷撤下 / 处罚
 const showPenalty = ref(false)
