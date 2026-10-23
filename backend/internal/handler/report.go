@@ -59,7 +59,7 @@ func (h *ReportHandler) TargetDetail(c *gin.Context) {
 	comments, _ := h.commentSvc.List(subID, true)
 	response.OK(c, gin.H{
 		"target_type":      r.TargetType,
-		"submission":       submissionView(sub, actor),
+		"submission":       submissionView(sub, actor, 0),
 		"comments":         comments,
 		"focus_comment_id": focus,
 	})

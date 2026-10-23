@@ -19,7 +19,7 @@ const meta = useMetaStore()
           {{ meta.site.footer_psba }}
         </a>
       </div>
-      <p v-if="meta.site.footer_custom" class="mt-2 leading-relaxed">{{ meta.site.footer_custom }}</p>
+      <div v-if="meta.site.footer_custom" class="mt-2 leading-relaxed [&_a]:text-[var(--grape)] [&_a]:hover:underline" v-html="meta.site.footer_custom"></div>
       <p class="mt-3 text-xs opacity-70">© 泰兴中学校园墙 · 仅用于校园社区交流</p>
     </div>
   </footer>

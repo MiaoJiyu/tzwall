@@ -14,6 +14,7 @@ const (
 	GroupSocial     = "互动"
 	GroupMedia      = "存储"
 	GroupGovernance = "治理"
+	GroupTicket     = "工单"
 )
 
 // 角色键：public 表示未登录访问者的公开权限集。
@@ -76,6 +77,7 @@ var Endpoints = []Endpoint{
 	ep("POST", "/api/auth/unbind", GroupAuth, "解绑第三方账号", false, model.RoleUser),
 	ep("POST", "/api/auth/me", GroupAuth, "当前用户", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/change-password", GroupAuth, "修改密码", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/auth/profile", GroupAuth, "修改个人资料", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/change-email", GroupAuth, "修改邮箱", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/logout", GroupAuth, "退出登录", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/delete-account", GroupAuth, "注销账号", false, model.RoleUser, model.RoleAdmin),
@@ -91,10 +93,30 @@ var Endpoints = []Endpoint{
 	ep("DELETE", "/api/submissions/:id", GroupContent, "删除投稿", false, model.RoleUser, model.RoleAdmin),
 	ep("GET", "/api/my/submissions", GroupContent, "我的投稿", false, model.RoleUser, model.RoleAdmin),
 
+	// 工单（用户端）
+	ep("POST", "/api/tickets", GroupTicket, "提交工单", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/tickets/mine", GroupTicket, "我的工单", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/tickets/:id", GroupTicket, "工单详情", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/tickets/:id/close", GroupTicket, "关闭我的工单", false, model.RoleUser, model.RoleAdmin),
+	// 工单（后台管理：普通管理员与超级管理员均可处理）
+	ep("GET", "/api/admin/tickets", GroupTicket, "工单列表", false, model.RoleAdmin),
+	ep("GET", "/api/admin/tickets/:id", GroupTicket, "工单详情(后台)", false, model.RoleAdmin),
+	ep("POST", "/api/admin/tickets/:id/reply", GroupTicket, "回复工单", false, model.RoleAdmin),
+	ep("POST", "/api/admin/tickets/:id/status", GroupTicket, "工单状态流转", false, model.RoleAdmin),
+
 	// 互动
 	ep("GET", "/api/submissions/:id/comments", GroupSocial, "评论列表", true),
 	ep("POST", "/api/submissions/:id/comments", GroupSocial, "发表评论", false, model.RoleUser, model.RoleAdmin),
 	ep("DELETE", "/api/comments/:id", GroupSocial, "删除评论", false, model.RoleUser, model.RoleAdmin),
+	// 私聊
+	ep("POST", "/api/conversations", GroupSocial, "发起私聊", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/conversations", GroupSocial, "我的会话", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/conversations/unread", GroupSocial, "未读消息数", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/conversations/:id/messages", GroupSocial, "会话消息", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/conversations/:id/messages", GroupSocial, "发送私聊消息", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/conversations/:id/read", GroupSocial, "标记已读", false, model.RoleUser, model.RoleAdmin),
+	// 用户公开主页
+	ep("GET", "/api/users/:id/public", GroupSocial, "用户公开主页", true),
 	ep("POST", "/api/reactions", GroupSocial, "点赞点踩", false, model.RoleUser, model.RoleAdmin),
 
 	// 存储
@@ -207,7 +229,12 @@ var Pages = []Page{
 	{Key: "page:publish", Path: "/publish", Label: "发布投稿", Requires: []string{"POST /api/submissions"}},
 	{Key: "page:my", Path: "/my", Label: "我的投稿", Requires: []string{"GET /api/my/submissions"}},
 	{Key: "page:profile", Path: "/profile", Label: "账号安全", Requires: []string{"POST /api/auth/me"}},
+	{Key: "page:messages", Path: "/messages", Label: "私聊", Requires: []string{"GET /api/conversations"}},
+	{Key: "page:user", Path: "/user/:id", Label: "用户主页", Public: true},
 	{Key: "page:my.punishments", Path: "/my/punishments", Label: "我的权限变更记录", Requires: []string{"GET /api/punishments/mine"}},
+	{Key: "page:my.tickets", Path: "/tickets", Label: "我的工单", Requires: []string{"GET /api/tickets/mine"}},
+	{Key: "page:ticket.new", Path: "/tickets/new", Label: "提交工单", Requires: []string{"POST /api/tickets"}},
+	{Key: "page:ticket.detail", Path: "/tickets/:id", Label: "工单详情", Requires: []string{"GET /api/tickets/:id"}},
 	{Key: "page:songs", Path: "/songs", Label: "点歌", Public: true},
 	{Key: "page:polls", Path: "/polls", Label: "投票", Public: true},
 	{Key: "page:admin.dashboard", Path: "/admin/dashboard", Label: "数据概览", Requires: []string{"GET /api/admin/dashboard"}},
@@ -218,6 +245,7 @@ var Pages = []Page{
 	{Key: "page:admin.songs", Path: "/admin/songs", Label: "点歌管理", Requires: []string{"GET /api/admin/songs"}},
 	{Key: "page:admin.polls", Path: "/admin/polls", Label: "投票管理", Requires: []string{"GET /api/admin/polls"}},
 	{Key: "page:admin.reports", Path: "/admin/reports", Label: "举报审核", Requires: []string{"GET /api/admin/reports"}},
+	{Key: "page:admin.tickets", Path: "/admin/tickets", Label: "工单管理", Requires: []string{"GET /api/admin/tickets"}},
 	{Key: "page:admin.punishments", Path: "/admin/punishments", Label: "处罚管理", Requires: []string{"GET /api/admin/punishments"}},
 	{Key: "page:admin.permissions", Path: "/admin/permissions", Label: "访问权限", Requires: []string{"GET /api/admin/permissions/matrix"}},
 	{Key: "page:admin.configs", Path: "/admin/configs", Label: "系统配置", Requires: []string{"GET /api/admin/configs"}},

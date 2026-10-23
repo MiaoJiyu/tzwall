@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Heart, ThumbsDown, Share2, MessageCircle, Send, Flag, Ban, Gavel, Pencil, Undo2 } from 'lucide-vue-next'
+import { Heart, ThumbsDown, Share2, MessageCircle, MessageSquare, Send, Flag, Ban, Gavel, Pencil, Undo2 } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { submissionApi, commentApi, interactionApi, punishmentApi, adminApi } from '@/api'
+import { submissionApi, commentApi, interactionApi, punishmentApi, adminApi, chatApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import CommentTree from '@/components/CommentTree.vue'
 import TitleBadge from '@/components/TitleBadge.vue'
+import ContentMarkdown from '@/components/ContentMarkdown.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
 import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
@@ -32,6 +33,18 @@ function openReport(type: string, targetId: number) {
 // 作者操作：修改（进入编辑页）/ 撤回（依据后端 can_edit/can_withdraw）
 function editSubmission() {
   router.push('/publish?edit=' + id)
+}
+async function startChat() {
+  if (!auth.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+  try {
+    const r = await chatApi.open(detail.value.user_id)
+    router.push('/messages/' + r.id)
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '无法发起会话')
+  }
 }
 async function withdrawSubmission() {
   try {
@@ -145,15 +158,20 @@ onMounted(() => {
     <button class="mb-3 text-sm text-[var(--text-soft)]" @click="$router.back()">← 返回</button>
 
     <article class="paper-card p-6 animate-fadeup">
-      <div class="flex items-center gap-2 text-xs text-[var(--text-soft)]">
-        <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ detail.anonymous ? '匿名用户' : detail.author }}</span>
+      <div class="flex flex-wrap items-center gap-2 text-xs text-[var(--text-soft)]">
+        <button v-if="!detail.anonymous" class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)] hover:underline" @click="router.push('/user/' + detail.user_id)">{{ detail.author }}</button>
+        <span v-else class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">匿名用户</span>
         <TitleBadge v-if="!detail.anonymous" :title="detail.author_title" />
+        <button v-if="!detail.anonymous && auth.isLoggedIn && detail.user_id !== auth.user?.id" class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-2 py-0.5 hover:text-[var(--grape)]" @click="startChat">
+          <MessageSquare :size="12" /> 私聊
+        </button>
         <span>{{ detail.created_at }}</span>
-        <span v-if="detail.status !== 'approved'" class="rounded bg-warn/20 px-2 py-0.5 text-warn">状态：{{ detail.status }}</span>
+        <span v-if="detail.under_review" class="rounded bg-warn/20 px-2 py-0.5 text-warn">审核中（当前展示原版）</span>
+        <span v-else-if="detail.status !== 'approved'" class="rounded bg-warn/20 px-2 py-0.5 text-warn">状态：{{ detail.status }}</span>
       </div>
       <h1 class="mt-2 font-serif-sc text-2xl font-bold">{{ detail.title }}</h1>
 
-      <p v-if="detail.content" class="mt-4 whitespace-pre-wrap leading-relaxed">{{ detail.content }}</p>
+      <div v-if="detail.content" class="mt-4"><ContentMarkdown :source="detail.content" /></div>
 
       <div v-if="detail.images?.length" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <img v-for="im in detail.images" :key="im.id" :src="im.url" class="h-40 w-full cursor-zoom-in rounded-lg object-cover" @click="previewImg = im.url" alt="" @error="$event.target.style.display = 'none'" />
@@ -165,6 +183,12 @@ onMounted(() => {
 
       <div v-if="detail.tags?.length" class="mt-4 flex flex-wrap gap-1.5">
         <span v-for="t in detail.tags" :key="t.id" class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">#{{ t.name }}</span>
+      </div>
+
+      <div v-if="detail.under_review && detail.pending_content" class="mt-4 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm">
+        <p class="mb-1 text-xs font-medium text-warn">您的新版本正在审核（通过后展示，当前上方为原版）：</p>
+        <p class="font-medium">{{ detail.pending_title }}</p>
+        <div class="mt-1 text-[var(--text-soft)]"><ContentMarkdown :source="detail.pending_content" /></div>
       </div>
 
       <div v-if="detail.contact" class="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3 text-sm">

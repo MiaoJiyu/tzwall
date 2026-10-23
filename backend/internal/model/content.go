@@ -69,6 +69,12 @@ type Submission struct {
 	ViewCount     int `gorm:"default:0" json:"view_count"`
 	RevisionCount int `gorm:"default:0" json:"revision_count"`
 
+	// 审核期间保留原版：已通过帖子被编辑后，原内容仍在主页展示并标注“审核中”，
+	// 新内容暂存于 Pending*，审核通过后覆盖主字段。
+	PendingEdit    bool   `gorm:"default:false;index" json:"-"`
+	PendingTitle   string `gorm:"size:200" json:"-"`
+	PendingContent string `gorm:"type:text" json:"-"`
+
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

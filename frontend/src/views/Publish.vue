@@ -6,6 +6,7 @@ import { submissionApi } from '@/api'
 import TagPicker from '@/components/TagPicker.vue'
 import ImageUploader from '@/components/ImageUploader.vue'
 import VideoUploader from '@/components/VideoUploader.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -213,8 +214,11 @@ async function submit() {
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium">内容</label>
-        <textarea v-model="content" rows="6" placeholder="分享你的故事（纯文本）" class="input-style h-auto py-3"></textarea>
+        <label class="mb-1 flex items-center justify-between text-sm font-medium">
+          <span>内容</span>
+          <span class="text-xs font-normal text-[var(--text-soft)]">支持 Markdown 与 LaTeX 公式</span>
+        </label>
+        <MarkdownEditor v-model="content" placeholder="分享你的故事…支持 Markdown 标题/列表/代码块与 $行内公式$、$$公式块$$" />
       </div>
 
       <div>

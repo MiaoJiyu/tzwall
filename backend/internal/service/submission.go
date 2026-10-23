@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -311,15 +312,23 @@ func (s *SubmissionService) Update(user *model.User, id uint, req CreateSubmissi
 	s.db.Create(&model.SubmissionRevision{
 		SubmissionID: sub.ID, Title: sub.Title, Content: sub.Content, EditorID: user.ID, CreatedAt: time.Now(),
 	})
-	sub.Title = req.Title
-	sub.Content = req.Content
-	sub.Contact = req.Contact
-	sub.ContactVisible = req.ContactVisible
-	sub.Anonymous = req.Anonymous
+	wasApproved := sub.Status == model.StatusApproved
 	sub.Status = model.StatusPending
 	sub.AdminNote = ""
 	sub.AuditStatus = model.ModerationReview
 	sub.RevisionCount++
+	if wasApproved {
+		// 已通过帖子被编辑：原版继续在主页展示并标注“审核中”，新内容暂存，通过后覆盖
+		sub.PendingEdit = true
+		sub.PendingTitle = req.Title
+		sub.PendingContent = req.Content
+	} else {
+		sub.Title = req.Title
+		sub.Content = req.Content
+		sub.Contact = req.Contact
+		sub.ContactVisible = req.ContactVisible
+		sub.Anonymous = req.Anonymous
+	}
 	if err := s.db.Save(&sub).Error; err != nil {
 		return nil, errs.New(errs.CodeInternal, err)
 	}
@@ -396,7 +405,8 @@ func (s *SubmissionService) List(p ListParams) ([]model.Submission, int64, error
 	if p.PageSize < 1 || p.PageSize > 50 {
 		p.PageSize = 20
 	}
-	q := s.db.Model(&model.Submission{}).Where("submissions.status = ?", model.StatusApproved)
+	// 公开列表：已通过 或 编辑待审核（保留原版展示并标注“审核中”）。
+	q := s.db.Model(&model.Submission{}).Where("(submissions.status = ? OR submissions.pending_edit = ?)", model.StatusApproved, true)
 	if p.Keyword != "" {
 		kw := "%" + p.Keyword + "%"
 		q = q.Where("submissions.title ILIKE ? OR submissions.content ILIKE ?", kw, kw)
@@ -426,7 +436,7 @@ func (s *SubmissionService) List(p ListParams) ([]model.Submission, int64, error
 // ListMine 我的投稿（含所有状态）。
 func (s *SubmissionService) ListMine(user *model.User) ([]model.Submission, error) {
 	var subs []model.Submission
-	if err := s.db.Where("user_id = ?", user.ID).Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
+	if err := s.db.Where("user_id = ?", user.ID).Preload("User").Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).
 		Order("created_at DESC").Find(&subs).Error; err != nil {
 		return nil, errs.New(errs.CodeInternal, err)
 	}
@@ -439,7 +449,7 @@ func (s *SubmissionService) GetVisible(id uint, viewer *model.User) (*model.Subm
 	if err := s.db.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").First(&sub, id).Error; err != nil {
 		return nil, errs.New(errs.ErrValidation, nil)
 	}
-	if sub.Status == model.StatusApproved {
+	if sub.Status == model.StatusApproved || sub.PendingEdit {
 		return &sub, nil
 	}
 	if viewer != nil && (viewer.ID == sub.UserID || viewer.IsAdmin()) {
@@ -463,11 +473,25 @@ func (s *SubmissionService) Review(admin *model.User, id uint, status model.Subm
 	if err := s.db.First(&sub, id).Error; err != nil {
 		return errs.New(errs.ErrValidation, nil)
 	}
-	sub.Status = status
+	updates := map[string]any{"status": status}
 	if note != "" {
-		sub.AdminNote = note
+		updates["admin_note"] = note
 	}
-	s.db.Save(&sub)
+	if sub.PendingEdit {
+		// 编辑待审核：通过则用新内容覆盖并清除暂存；否则丢弃本次编辑，原版继续展示。
+		updates["pending_edit"] = false
+		updates["pending_title"] = ""
+		updates["pending_content"] = ""
+		if status == model.StatusApproved {
+			updates["title"] = sub.PendingTitle
+			updates["content"] = sub.PendingContent
+		} else {
+			updates["status"] = model.StatusApproved // 保留原版
+		}
+	}
+	if err := s.db.Model(&model.Submission{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		return errs.New(errs.CodeInternal, err)
+	}
 	return nil
 }
 
@@ -489,4 +513,41 @@ func (s *SubmissionService) Restore(admin *model.User, id uint) error {
 // IncrView 浏览量自增（公开详情访问）。
 func (s *SubmissionService) IncrView(id uint) {
 	s.db.Model(&model.Submission{}).Where("id = ?", id).Update("view_count", gorm.Expr("view_count + 1"))
+}
+
+// IncrViewOnce 浏览量按访问者去重自增（同一用户/IP 在窗口期内仅计一次）。
+func (s *SubmissionService) IncrViewOnce(id uint, viewerKey string) {
+	if viewerKey != "" && s.cache != nil {
+		ck := "viewed:sub:" + strconv.FormatUint(uint64(id), 10) + ":" + viewerKey
+		if s.cache.Incr(ck, 24*time.Hour) > 1 {
+			return
+		}
+	}
+	s.db.Model(&model.Submission{}).Where("id = ?", id).Update("view_count", gorm.Expr("view_count + 1"))
+}
+
+// MyAttitude 当前用户对某投稿的态度（1 赞 / -1 踩 / 0 无）。
+func (s *SubmissionService) MyAttitude(viewerID, id uint) int {
+	if viewerID == 0 {
+		return 0
+	}
+	var r model.Reaction
+	if err := s.db.Where("user_id = ? AND target_type = ? AND target_id = ?", viewerID, "submission", id).First(&r).Error; err == nil {
+		return r.Attitude
+	}
+	return 0
+}
+
+// MyAttitudes 批量取当前用户对一批投稿的态度。
+func (s *SubmissionService) MyAttitudes(viewerID uint, ids []uint) map[uint]int {
+	m := map[uint]int{}
+	if viewerID == 0 || len(ids) == 0 {
+		return m
+	}
+	var rs []model.Reaction
+	s.db.Where("user_id = ? AND target_type = ? AND target_id IN ?", viewerID, "submission", ids).Find(&rs)
+	for _, r := range rs {
+		m[r.TargetID] = r.Attitude
+	}
+	return m
 }

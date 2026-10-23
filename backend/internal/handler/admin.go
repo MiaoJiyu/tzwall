@@ -322,7 +322,7 @@ func (h *AdminHandler) submissionItems(list []model.Submission, u *model.User) [
 	auditMap, _ := h.svc.ModerationByBiz(bizIDs)
 	items := make([]gin.H, 0, len(list))
 	for i := range list {
-		v := submissionView(&list[i], u)
+		v := submissionView(&list[i], u, 0)
 		if ts, ok := auditMap[fmt.Sprintf("sub-%d", list[i].ID)]; ok {
 			aud := make([]gin.H, 0, len(ts))
 			for _, t := range ts {

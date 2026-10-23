@@ -112,7 +112,11 @@ func (s *AuthService) Register(req RegisterReq) (*model.User, error) {
 		return nil, errs.New(errs.CodeInternal, err)
 	}
 
+	// 是否需要邮箱验证：默认随邮件服务是否配置；QQ 邮箱可在后台开启“免验证直接注册”。
 	needVerify := s.mailer.Configured()
+	if needVerify && IsQQMail(req.Email) && s.store.Bool("qq_mail_skip_verify") {
+		needVerify = false
+	}
 	u := &model.User{
 		Username:         req.Username,
 		Email:            req.Email,
@@ -143,6 +147,66 @@ func (s *AuthService) Register(req RegisterReq) (*model.User, error) {
 		}()
 	}
 	return u, nil
+}
+
+// IsQQMail 判断是否为 QQ 邮箱：取“@”后域名，与 "qq.com" 不区分大小写精确匹配；
+// 子域名（如 vip.qq.com）或其他变体均不算。
+func IsQQMail(email string) bool {
+	at := strings.LastIndex(email, "@")
+	if at < 0 {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(email[at+1:]), "qq.com")
+}
+
+// ProfileReq 个人资料修改（头像/昵称/联系方式 + 公开主页设置）。
+type ProfileReq struct {
+	Nickname      string `json:"nickname"`
+	Avatar        string `json:"avatar"`
+	Wechat        string `json:"wechat"`
+	QQ            string `json:"qq"`
+	Phone         string `json:"phone"`
+	ProfilePublic *bool  `json:"profile_public"`
+	PublicFields  string `json:"public_fields"`
+}
+
+// UpdateProfile 修改个人资料与公开主页设置。
+func (s *AuthService) UpdateProfile(user *model.User, req ProfileReq) error {
+	nickname := strings.TrimSpace(req.Nickname)
+	avatar := strings.TrimSpace(req.Avatar)
+	wechat := strings.TrimSpace(req.Wechat)
+	qq := strings.TrimSpace(req.QQ)
+	phone := strings.TrimSpace(req.Phone)
+	if len([]rune(nickname)) > 64 || len([]rune(avatar)) > 512 ||
+		len([]rune(wechat)) > 64 || len([]rune(qq)) > 32 || len([]rune(phone)) > 32 {
+		return errs.New(errs.ErrValidation, fmt.Errorf("资料长度超出限制"))
+	}
+	if s.words != nil && nickname != "" {
+		if err := s.words.CheckContent(nickname); err != nil {
+			return err
+		}
+	}
+	// 公开字段白名单
+	allowed := map[string]bool{"wechat": true, "qq": true, "phone": true, "school": true, "real_name": true}
+	clean := make([]string, 0, 5)
+	for _, f := range strings.Split(req.PublicFields, ",") {
+		f = strings.TrimSpace(f)
+		if allowed[f] {
+			clean = append(clean, f)
+		}
+	}
+	updates := map[string]any{
+		"nickname":      nickname,
+		"avatar":        avatar,
+		"wechat":        wechat,
+		"qq":            qq,
+		"phone":         phone,
+		"public_fields": strings.Join(clean, ","),
+	}
+	if req.ProfilePublic != nil {
+		updates["profile_public"] = *req.ProfilePublic
+	}
+	return s.db.Model(&model.User{}).Where("id = ?", user.ID).Updates(updates).Error
 }
 
 // Login 登录，返回 token。

@@ -64,6 +64,7 @@ var ConfigItems = []ConfigItem{
 	{Key: "qq_oauth_secret", Group: GroupAccount, Label: "QQ 互联 AppKey", Type: TypeSecret, Default: "", Desc: "QQ OAuth 登录用 AppKey；加密存储，留空表示不修改"},
 	{Key: "qq_oauth_redirect_uri", Group: GroupAccount, Label: "QQ 回调地址", Type: TypeString, Default: "", Desc: "QQ 授权完成后的回调地址，需与 QQ 互联后台配置一致"},
 	{Key: "social_auto_create", Group: GroupAccount, Label: "社交登录自动建号", Type: TypeBool, Default: "true", Desc: "开启后，微信/QQ 首次登录自动创建账号；关闭则要求先注册或绑定已有账号"},
+	{Key: "qq_mail_skip_verify", Group: GroupAccount, Label: "如果是QQ邮箱，直接注册，不进行验证", Type: TypeBool, Default: "false", Desc: "开启后，QQ 邮箱（域名恰为 qq.com）注册跳过邮箱验证直接完成，且不弹提示；关闭则按常规验证流程并提示查收"},
 
 	// 发帖与评论
 	{Key: "comment_max_len", Group: GroupPost, Label: "评论字数上限", Type: TypeInt, Default: "500", Min: 10, Max: 5000},
@@ -125,7 +126,7 @@ var ConfigItems = []ConfigItem{
 	// 页脚备案
 	{Key: "footer_icp", Group: GroupFooter, Label: "ICP 备案号", Type: TypeString, Default: "", Desc: "留空则页脚不展示"},
 	{Key: "footer_psba", Group: GroupFooter, Label: "公安备案号", Type: TypeString, Default: "", Desc: "留空则页脚不展示"},
-	{Key: "footer_custom", Group: GroupFooter, Label: "页脚自定义内容", Type: TypeText, Default: "", Desc: "支持简单文本，展示在备案号下方"},
+	{Key: "footer_custom", Group: GroupFooter, Label: "页脚自定义内容", Type: TypeText, Default: "", Desc: "支持简单 HTML（仅超级管理员可配置），展示在备案号下方"},
 }
 
 // ConfigGroups 分组顺序与标签。

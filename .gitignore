@@ -38,6 +38,7 @@ profile.cov
 # ---------- 前端（Vue3 + Vite）----------
 frontend/node_modules/
 frontend/.pnpm-store/
+frontend/public/*
 
 # 构建产物（由 deploy.sh 在服务器上构建）
 frontend/dist/

@@ -22,7 +22,7 @@ func NewSubmissionHandler(svc *service.SubmissionService) *SubmissionHandler {
 }
 
 // submissionView 转为前端视图，处理匿名、联系方式可见性与图片代理地址。
-func submissionView(sub *model.Submission, viewer *model.User) gin.H {
+func submissionView(sub *model.Submission, viewer *model.User, myAttitude int) gin.H {
 	author := "匿名用户"
 	realAuthor := ""
 	showContact := false
@@ -111,6 +111,13 @@ func submissionView(sub *model.Submission, viewer *model.User) gin.H {
 		"user_id":         sub.UserID,
 		"can_edit":        canEdit,
 		"can_withdraw":    canWithdraw,
+		"my_attitude":     myAttitude,
+		"under_review":    sub.PendingEdit,
+	}
+	// 编辑待审核：向作者/管理员暴露暂存的新版本，便于审核
+	if sub.PendingEdit && viewer != nil && (viewer.ID == sub.UserID || viewer.IsAdmin()) {
+		v["pending_title"] = sub.PendingTitle
+		v["pending_content"] = sub.PendingContent
 	}
 	if viewer != nil && viewer.IsAdmin() && realAuthor != "" {
 		v["real_author"] = realAuthor
@@ -136,7 +143,7 @@ func (h *SubmissionHandler) Create(c *gin.Context) {
 		response.FailCode(c, code, err.Error())
 		return
 	}
-	response.OK(c, submissionView(sub, u))
+	response.OK(c, submissionView(sub, u, 0))
 }
 
 // Update 编辑重提。
@@ -154,7 +161,7 @@ func (h *SubmissionHandler) Update(c *gin.Context) {
 		response.FailCode(c, code, err.Error())
 		return
 	}
-	response.OK(c, submissionView(sub, u))
+	response.OK(c, submissionView(sub, u, 0))
 }
 
 // Withdraw 作者撤回自己的投稿。
@@ -196,9 +203,17 @@ func (h *SubmissionHandler) List(c *gin.Context) {
 		return
 	}
 	viewer := middleware.CurrentUser(c)
+	ids := make([]uint, len(subs))
+	for i := range subs {
+		ids[i] = subs[i].ID
+	}
+	attitudes := map[uint]int{}
+	if viewer != nil {
+		attitudes = h.svc.MyAttitudes(viewer.ID, ids)
+	}
 	items := make([]gin.H, 0, len(subs))
 	for i := range subs {
-		items = append(items, submissionView(&subs[i], viewer))
+		items = append(items, submissionView(&subs[i], viewer, attitudes[subs[i].ID]))
 	}
 	response.OK(c, gin.H{"items": items, "total": total, "page": p.Page, "page_size": p.PageSize})
 }
@@ -213,10 +228,19 @@ func (h *SubmissionHandler) Get(c *gin.Context) {
 		response.FailCode(c, code, err.Error())
 		return
 	}
-	if sub.Status == model.StatusApproved {
-		h.svc.IncrView(uint(id))
+	// 浏览量按访问者去重（登录用户按 ID，游客按 IP）
+	if sub.Status == model.StatusApproved || sub.PendingEdit {
+		key := "ip:" + middleware.ClientIP(c)
+		if viewer != nil {
+			key = "u" + strconv.Itoa(int(viewer.ID))
+		}
+		h.svc.IncrViewOnce(uint(id), key)
 	}
-	response.OK(c, submissionView(sub, viewer))
+	att := 0
+	if viewer != nil {
+		att = h.svc.MyAttitude(viewer.ID, uint(id))
+	}
+	response.OK(c, submissionView(sub, viewer, att))
 }
 
 // ListMine 我的投稿。
@@ -228,8 +252,13 @@ func (h *SubmissionHandler) ListMine(c *gin.Context) {
 		return
 	}
 	items := make([]gin.H, 0, len(subs))
+	ids := make([]uint, len(subs))
 	for i := range subs {
-		items = append(items, submissionView(&subs[i], u))
+		ids[i] = subs[i].ID
+	}
+	attitudes := h.svc.MyAttitudes(u.ID, ids)
+	for i := range subs {
+		items = append(items, submissionView(&subs[i], u, attitudes[subs[i].ID]))
 	}
 	response.OK(c, gin.H{"items": items})
 }

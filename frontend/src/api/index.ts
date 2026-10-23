@@ -4,6 +4,7 @@ export const authApi = {
   register: (p: any) => http.post('/auth/register', p),
   login: (p: any) => http.post('/auth/login', p),
   me: () => http.post('/auth/me'),
+  updateProfile: (p: any) => http.post('/auth/profile', p),
   verifyEmail: (token: string) => http.get('/auth/verify-email?token=' + encodeURIComponent(token)),
   resendVerify: (p: any) => http.post('/auth/resend-verify', p),
   forgot: (p: any) => http.post('/auth/forgot', p),
@@ -41,6 +42,35 @@ export const submissionApi = {
     return http.post('/videos', fd)
   },
   videoUrl: (id: number) => '/api/videos/' + id,
+}
+
+export const ticketApi = {
+  create: (p: any) => http.post('/tickets', p),
+  mine: (params?: any) => http.get('/tickets/mine', { params }),
+  get: (id: number) => http.get('/tickets/' + id),
+  close: (id: number) => http.post('/tickets/' + id + '/close'),
+  uploadImage: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return http.post('/images', fd)
+  },
+  adminList: (params: any) => http.get('/admin/tickets', { params }),
+  adminGet: (id: number) => http.get('/admin/tickets/' + id),
+  reply: (id: number, p: any) => http.post('/admin/tickets/' + id + '/reply', p),
+  setStatus: (id: number, p: any) => http.post('/admin/tickets/' + id + '/status', p),
+}
+
+export const userApi = {
+  public: (id: number) => http.get('/users/' + id + '/public'),
+}
+
+export const chatApi = {
+  open: (otherId: number) => http.post('/conversations', { other_id: otherId }),
+  list: () => http.get('/conversations'),
+  unread: () => http.get('/conversations/unread'),
+  messages: (id: number) => http.get('/conversations/' + id + '/messages'),
+  send: (id: number, content: string) => http.post('/conversations/' + id + '/messages', { content }),
+  read: (id: number) => http.post('/conversations/' + id + '/read'),
 }
 
 export const commentApi = {

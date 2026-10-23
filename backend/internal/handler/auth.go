@@ -30,6 +30,11 @@ func userView(u *model.User) gin.H {
 		"wechat":            u.Wechat,
 		"qq":                u.QQ,
 		"phone":             u.Phone,
+		"nickname":          u.Nickname,
+		"avatar":            u.Avatar,
+		"title":             u.Title,
+		"profile_public":    u.ProfilePublic,
+		"public_fields":     u.PublicFields,
 		"email_verified":    u.EmailVerified,
 		"status":            u.Status,
 		"agreement_version": u.AgreementVersion,
@@ -50,7 +55,29 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response.FailCode(c, code, err.Error())
 		return
 	}
-	response.OK(c, userView(u))
+	// qq_pending：QQ 邮箱且仍需验证（未激活）→ 前端弹查收提示
+	qqPending := !u.EmailVerified && service.IsQQMail(req.Email)
+	response.OK(c, gin.H{"user": userView(u), "qq_pending": qqPending})
+}
+
+// Profile 修改个人资料与公开主页设置。
+func (h *AuthHandler) Profile(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	if u == nil {
+		response.FailCode(c, errs.CodeUnauthorized, "")
+		return
+	}
+	var req service.ProfileReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	if err := h.svc.UpdateProfile(u, req); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
 }
 
 // Login 登录。

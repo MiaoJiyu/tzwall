@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { submissionApi, adminApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import SubmissionCard from '@/components/SubmissionCard.vue'
+import PollWidget from '@/components/PollWidget.vue'
 import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
 const router = useRouter()
@@ -111,6 +112,8 @@ onMounted(() => {
             #{{ t.name }}
           </button>
         </div>
+
+        <PollWidget />
 
         <div v-if="items.length" class="space-y-4">
           <SubmissionCard v-for="it in items" :key="it.id" :item="it" @penalty="onPenalty" @takedown="onTakedown" />

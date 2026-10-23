@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Plus, Home, FileText, User as UserIcon, Shield, ShieldAlert, LogOut, Menu, Music, BarChart3 } from 'lucide-vue-next'
+import { Search, Plus, Home, FileText, User as UserIcon, Shield, ShieldAlert, LogOut, Menu, Music, BarChart3, Ticket, MessageSquare } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useMetaStore } from '@/stores/meta'
+import { chatApi } from '@/api'
 import ThemeToggle from './ThemeToggle.vue'
 
 const auth = useAuthStore()
@@ -11,6 +12,29 @@ const meta = useMetaStore()
 const router = useRouter()
 const keyword = ref('')
 const mobileOpen = ref(false)
+
+// 未读私聊角标
+const unread = ref(0)
+let unreadTimer: any = null
+async function loadUnread() {
+  if (!auth.isLoggedIn) {
+    unread.value = 0
+    return
+  }
+  try {
+    const r = await chatApi.unread()
+    unread.value = r.unread || 0
+  } catch {
+    /* 忽略 */
+  }
+}
+onMounted(() => {
+  loadUnread()
+  unreadTimer = setInterval(loadUnread, 15000)
+})
+onBeforeUnmount(() => {
+  if (unreadTimer) clearInterval(unreadTimer)
+})
 
 function doSearch() {
   router.push({ path: '/', query: keyword.value ? { keyword: keyword.value } : {} })
@@ -50,6 +74,11 @@ function logout() {
         <button class="nav-btn" @click="go('/polls')"><BarChart3 :size="16" /> 投票</button>
         <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/publish')"><Plus :size="16" /> 发布</button>
         <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/my')"><FileText :size="16" /> 我的</button>
+        <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/tickets')"><Ticket :size="16" /> 工单</button>
+        <button v-if="auth.isLoggedIn" class="nav-btn relative" @click="go('/messages')">
+          <MessageSquare :size="16" /> 消息
+          <span v-if="unread > 0" class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[10px] font-medium text-white">{{ unread > 99 ? '99+' : unread }}</span>
+        </button>
         <ThemeToggle />
         <template v-if="auth.isLoggedIn">
           <el-dropdown trigger="click">
@@ -59,6 +88,7 @@ function logout() {
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item @click="go('/my')"><FileText :size="14" /> 我的投稿</el-dropdown-item>
+                <el-dropdown-item @click="go('/tickets')"><Ticket :size="14" /> 我的工单</el-dropdown-item>
                 <el-dropdown-item @click="go('/profile')"><UserIcon :size="14" /> 账号安全</el-dropdown-item>
                 <el-dropdown-item @click="go('/my/punishments')"><ShieldAlert :size="14" /> 权限变更记录</el-dropdown-item>
                 <el-dropdown-item v-if="auth.isAdmin" @click="go('/admin')"><Shield :size="14" /> 后台管理</el-dropdown-item>
@@ -89,6 +119,8 @@ function logout() {
         <button class="nav-btn justify-start" @click="go('/polls')"><BarChart3 :size="16" /> 投票</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/publish')"><Plus :size="16" /> 发布投稿</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/my')"><FileText :size="16" /> 我的投稿</button>
+        <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/messages')"><MessageSquare :size="16" /> 私聊消息<span v-if="unread>0" class="ml-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[10px] text-white">{{ unread>99?'99+':unread }}</span></button>
+        <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/tickets')"><Ticket :size="16" /> 我的工单</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/profile')"><UserIcon :size="16" /> 账号安全</button>
         <button v-if="auth.isLoggedIn && auth.isAdmin" class="nav-btn justify-start" @click="go('/admin')"><Shield :size="16" /> 后台管理</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="logout"><LogOut :size="16" /> 退出登录</button>

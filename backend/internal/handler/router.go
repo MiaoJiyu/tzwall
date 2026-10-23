@@ -56,6 +56,9 @@ func SetupRouter(d Deps) *gin.Engine {
 	commentSvc := service.NewComment(d.DB, d.Store, d.Moderation).WithWordFilter(words)
 	songSvc := service.NewSong(d.DB, d.Store).WithWordFilter(words)
 	pollSvc := service.NewPoll(d.DB, d.Store).WithWordFilter(words)
+	ticketSvc := service.NewTicket(d.DB, d.Store).WithWordFilter(words)
+	userSvc := service.NewUser(d.DB)
+	chatSvc := service.NewChat(d.DB)
 	interSvc := service.NewInteraction(d.DB)
 	adminSvc := service.NewAdmin(d.DB, d.Store)
 	permSvc := service.NewPermission(d.DB, resolver)
@@ -65,6 +68,9 @@ func SetupRouter(d Deps) *gin.Engine {
 	commentH := NewCommentHandler(commentSvc)
 	songH := NewSongHandler(songSvc)
 	pollH := NewPollHandler(pollSvc)
+	ticketH := NewTicketHandler(ticketSvc)
+	userH := NewUserHandler(userSvc)
+	chatH := NewChatHandler(chatSvc)
 	interH := NewInteractionHandler(interSvc)
 	imgH := NewImageHandler(d.DB, d.Storage, d.Cfg, d.Cache, d.Store, d.Moderation)
 	initImageLinks(d.Cfg.JWTSecret, d.Store) // 图片访客令牌签名密钥（盲水印写入用户名用）
@@ -115,6 +121,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	// 鉴权（私有）
 	r.POST("/api/auth/me", perm.Require("POST /api/auth/me"), authH.Me)
 	r.POST("/api/auth/change-password", perm.Require("POST /api/auth/change-password"), authH.ChangePassword)
+	r.POST("/api/auth/profile", perm.Require("POST /api/auth/profile"), authH.Profile)
 	r.POST("/api/auth/change-email", perm.Require("POST /api/auth/change-email"), authH.ChangeEmail)
 	r.POST("/api/auth/logout", perm.Require("POST /api/auth/logout"), authH.Logout)
 	r.POST("/api/auth/delete-account", perm.Require("POST /api/auth/delete-account"), authH.DeleteAccount)
@@ -129,6 +136,8 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/songs", perm.Public("GET /api/songs"), songH.List)
 	r.GET("/api/polls", perm.Public("GET /api/polls"), pollH.List)
 	r.GET("/api/polls/:id", perm.Public("GET /api/polls/:id"), pollH.Detail)
+	// 用户公开主页（公开）
+	r.GET("/api/users/:id/public", perm.Public("GET /api/users/:id/public"), userH.Public)
 
 	// 投稿/评论（私有）
 	r.POST("/api/submissions", perm.Require("POST /api/submissions"), subH.Create)
@@ -136,6 +145,12 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/submissions/:id/withdraw", perm.Require("POST /api/submissions/:id/withdraw"), subH.Withdraw)
 	r.DELETE("/api/submissions/:id", perm.Require("DELETE /api/submissions/:id"), subH.Delete)
 	r.GET("/api/my/submissions", perm.Require("GET /api/my/submissions"), subH.ListMine)
+
+	// 工单（用户端，需登录）
+	r.POST("/api/tickets", perm.Require("POST /api/tickets"), ticketH.Create)
+	r.GET("/api/tickets/mine", perm.Require("GET /api/tickets/mine"), ticketH.ListMine)
+	r.GET("/api/tickets/:id", perm.Require("GET /api/tickets/:id"), ticketH.Get)
+	r.POST("/api/tickets/:id/close", perm.Require("POST /api/tickets/:id/close"), ticketH.Close)
 	r.POST("/api/submissions/:id/comments", perm.Require("POST /api/submissions/:id/comments"), commentH.Create)
 	r.DELETE("/api/comments/:id", perm.Require("DELETE /api/comments/:id"), commentH.Delete)
 	r.POST("/api/admin/comments/:id/remove", perm.Require("POST /api/admin/comments/:id/remove"), commentH.AdminRemove)
@@ -150,6 +165,14 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/polls", perm.Require("POST /api/polls"), pollH.Create)
 	r.POST("/api/polls/:id/vote", perm.Require("POST /api/polls/:id/vote"), pollH.Vote)
 	r.DELETE("/api/polls/:id", perm.Require("DELETE /api/polls/:id"), pollH.DeleteOwn)
+
+	// 私聊（需登录）
+	r.POST("/api/conversations", perm.Require("POST /api/conversations"), chatH.Open)
+	r.GET("/api/conversations", perm.Require("GET /api/conversations"), chatH.List)
+	r.GET("/api/conversations/unread", perm.Require("GET /api/conversations/unread"), chatH.Unread)
+	r.GET("/api/conversations/:id/messages", perm.Require("GET /api/conversations/:id/messages"), chatH.Messages)
+	r.POST("/api/conversations/:id/messages", perm.Require("POST /api/conversations/:id/messages"), chatH.Send)
+	r.POST("/api/conversations/:id/read", perm.Require("POST /api/conversations/:id/read"), chatH.Read)
 
 	// 图片（私有上传 / 公开代理）
 	r.POST("/api/images", perm.Require("POST /api/images"), imgH.Upload)
@@ -176,6 +199,12 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.DELETE("/api/admin/tags/:id", perm.Require("DELETE /api/admin/tags/:id"), adminH.DeleteTag)
 	r.GET("/api/admin/submissions/pending", perm.Require("GET /api/admin/submissions/pending"), adminH.PendingSubmissions)
 	r.GET("/api/admin/submissions/all", perm.Require("GET /api/admin/submissions/all"), adminH.AllSubmissions)
+
+	// 工单（后台管理：普通管理员与超级管理员均可处理）
+	r.GET("/api/admin/tickets", perm.Require("GET /api/admin/tickets"), ticketH.AdminList)
+	r.GET("/api/admin/tickets/:id", perm.Require("GET /api/admin/tickets/:id"), ticketH.AdminGet)
+	r.POST("/api/admin/tickets/:id/reply", perm.Require("POST /api/admin/tickets/:id/reply"), ticketH.Reply)
+	r.POST("/api/admin/tickets/:id/status", perm.Require("POST /api/admin/tickets/:id/status"), ticketH.SetStatus)
 	r.POST("/api/admin/submissions/:id/review", perm.Require("POST /api/admin/submissions/:id/review"), adminH.ReviewSubmission)
 	r.POST("/api/admin/submissions/:id/restore", perm.Require("POST /api/admin/submissions/:id/restore"), adminH.RestoreSubmission)
 	r.POST("/api/admin/images/sync-private", perm.Require("POST /api/admin/images/sync-private"), imgH.SyncPrivate)

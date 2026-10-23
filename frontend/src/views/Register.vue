@@ -25,6 +25,7 @@ const form = reactive({
 // 注册成功后的邮箱激活状态
 const registered = ref(false)
 const registeredEmail = ref('')
+const qqModal = ref(false)
 const resendLoading = ref(false)
 const resendMsg = ref('')
 const resendOk = ref(false)
@@ -42,15 +43,18 @@ async function submit() {
   }
   loading.value = true
   try {
-    await authApi.register({ ...form, agree: true })
-    if (meta.site.features?.mailer) {
-      // 需邮箱激活：停留激活面板，引导查收/重发，而非直接跳登录
+    const r: any = await authApi.register({ ...form, agree: true })
+    // QQ 邮箱且需验证：立即弹出查收提示（由后端判定，前端仅展示）
+    if (r?.qq_pending) qqModal.value = true
+    // 以后端返回的激活状态为准：未激活→停留激活面板；已激活（免验证/未配邮件）→去登录
+    const verified = r?.user ? !!r.user.email_verified : !meta.site.features?.mailer
+    if (verified) {
+      ElMessage.success('注册成功，可直接登录')
+      router.push('/login')
+    } else {
       registeredEmail.value = form.email
       registered.value = true
       ElMessage.success('注册成功，激活邮件已发送，请查收')
-    } else {
-      ElMessage.success('注册成功，可直接登录')
-      router.push('/login')
     }
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || e?.message || '注册失败，请稍后再试')
@@ -174,6 +178,18 @@ onBeforeUnmount(() => {
       已有账号？<router-link to="/login" class="text-[var(--grape)]">去登录</router-link>
     </p>
     </template>
+
+    <!-- QQ 邮箱注册提示（仅 QQ 邮箱且需验证时由后端触发） -->
+    <el-dialog v-model="qqModal" title="QQ 邮箱注册提示" width="420px" :close-on-click-modal="false" :show-close="true">
+      <p class="text-sm leading-relaxed text-[var(--text)]">
+        您使用了QQ邮箱注册。如果没有收到激活邮件，请检查“设置-自助查询-收信查询”或者垃圾邮件箱。
+      </p>
+      <template #footer>
+        <div class="flex justify-end">
+          <button class="btn-grape rounded-full px-5 py-2 text-sm font-medium text-white" @click="qqModal = false">我知道了</button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

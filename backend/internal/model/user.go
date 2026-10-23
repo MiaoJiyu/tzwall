@@ -48,6 +48,10 @@ type User struct {
 	// Title 用户称号（由超级管理员授予，展示于用户名后）
 	Title string `gorm:"size:64" json:"title,omitempty"`
 
+	// 公开主页：ProfilePublic 开启后，按 PublicFields（逗号分隔：phone,wechat,qq,school,real_name）对外展示
+	ProfilePublic bool   `gorm:"default:false;index" json:"profile_public"`
+	PublicFields  string `gorm:"size:128" json:"public_fields,omitempty"`
+
 	Role Role `gorm:"size:20;default:user;index" json:"role"`
 
 	EmailVerified     bool       `gorm:"default:false" json:"email_verified"`
