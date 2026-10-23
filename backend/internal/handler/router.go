@@ -113,11 +113,18 @@ func SetupRouter(d Deps) *gin.Engine {
 
 	// 第三方登录（微信小程序 / QQ OAuth）
 	r.POST("/api/auth/wechat/login", perm.Public("POST /api/auth/wechat/login"), rate.Limit("wechat_login", "login_rph", 30), authH.WechatLogin)
+	r.POST("/api/auth/wechat/register", perm.Public("POST /api/auth/wechat/register"), rate.Limit("wechat_register", "register_rph", 20), authH.WechatRegister)
+	r.POST("/api/auth/wechat/bind-code", perm.Require("POST /api/auth/wechat/bind-code"), authH.WechatBindCode)
+	r.POST("/api/auth/wechat/bind-code/confirm", perm.Public("POST /api/auth/wechat/bind-code/confirm"), authH.WechatBindByCode)
 	r.GET("/api/auth/qq/url", perm.Public("GET /api/auth/qq/url"), authH.QQAuthorize)
 	r.GET("/api/auth/qq/callback", perm.Public("GET /api/auth/qq/callback"), authH.QQCallback)
 	r.POST("/api/auth/social/exchange", perm.Public("POST /api/auth/social/exchange"), authH.SocialExchange)
 	r.POST("/api/auth/bind", perm.Require("POST /api/auth/bind"), authH.BindProvider)
 	r.POST("/api/auth/unbind", perm.Require("POST /api/auth/unbind"), authH.UnbindProvider)
+	r.GET("/api/auth/qq/bind/url", perm.Require("GET /api/auth/qq/bind/url"), authH.QQBindAuthorize)
+	r.GET("/api/auth/wechat/web/url", perm.Public("GET /api/auth/wechat/web/url"), authH.WechatWebAuthorize)
+	r.GET("/api/auth/wechat/web/bind/url", perm.Require("GET /api/auth/wechat/web/bind/url"), authH.WechatWebBindAuthorize)
+	r.GET("/api/auth/wechat/web/callback", perm.Public("GET /api/auth/wechat/web/callback"), authH.WechatWebCallback)
 
 	// 鉴权（私有）
 	r.POST("/api/auth/me", perm.Require("POST /api/auth/me"), authH.Me)

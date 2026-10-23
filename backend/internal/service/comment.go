@@ -124,8 +124,8 @@ func (s *CommentService) List(submissionID uint, isAdmin bool) ([]*model.Comment
 		c := byID[all[i].ID]
 		// 附加作者名与称号
 		var u model.User
-		if err := s.db.Select("username", "title", "avatar").First(&u, c.UserID).Error; err == nil {
-			c.Username = u.Username
+		if err := s.db.Select("username", "nickname", "title", "avatar").First(&u, c.UserID).Error; err == nil {
+			c.Username = u.DisplayName() // 展示名：昵称优先
 			c.Title = u.Title
 			c.Avatar = u.Avatar
 		}

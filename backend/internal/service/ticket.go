@@ -98,7 +98,7 @@ func (s *TicketService) Create(u *model.User, req CreateTicketReq) (*model.Ticke
 	if err := s.db.Create(t).Error; err != nil {
 		return nil, errs.New(errs.CodeInternal, err)
 	}
-	t.Username = u.Username
+	t.Username = u.DisplayName()
 	attachView(t)
 	return t, nil
 }
@@ -284,10 +284,10 @@ func (s *TicketService) loadDetail(t *model.Ticket) {
 		}
 		if len(ids) > 0 {
 			var users []model.User
-			s.db.Select("id, username").Where("id IN ?", ids).Find(&users)
+			s.db.Select("id, username, nickname").Where("id IN ?", ids).Find(&users)
 			m := make(map[uint]string, len(users))
 			for _, u := range users {
-				m[u.ID] = u.Username
+				m[u.ID] = u.DisplayName()
 			}
 			for i := range replies {
 				replies[i].Username = m[replies[i].UserID]
@@ -306,10 +306,10 @@ func (s *TicketService) fillUsernames(list []model.Ticket) {
 		ids = append(ids, t.UserID)
 	}
 	var users []model.User
-	s.db.Select("id, username").Where("id IN ?", ids).Find(&users)
+	s.db.Select("id, username, nickname").Where("id IN ?", ids).Find(&users)
 	m := make(map[uint]string, len(users))
 	for _, u := range users {
-		m[u.ID] = u.Username
+		m[u.ID] = u.DisplayName()
 	}
 	for i := range list {
 		list[i].Username = m[list[i].UserID]

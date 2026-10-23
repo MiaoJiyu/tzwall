@@ -28,7 +28,7 @@ func submissionView(sub *model.Submission, viewer *model.User, myAttitude int) g
 	showContact := false
 	if !sub.Anonymous {
 		if sub.User != nil {
-			author = sub.User.Username
+			author = sub.User.DisplayName()
 			realAuthor = sub.User.Username
 		}
 		if sub.ContactVisible == model.ContactAll {

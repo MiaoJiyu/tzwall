@@ -53,6 +53,11 @@ type Config struct {
 	QQSecret       string
 	QQRedirectURI  string
 
+	// 微信网页应用（网站扫码 OAuth，用于网页端登录/绑定；与小程序 AppID 不同）
+	WechatWebAppID       string
+	WechatWebSecret      string
+	WechatWebRedirectURI string
+
 	WatermarkFontPath string
 	SiteName          string
 	TrustedProxies    []string
@@ -133,6 +138,9 @@ func Load() *Config {
 	c.QQAppID = getenv("QQ_OAUTH_APPID", "")
 	c.QQSecret = getenv("QQ_OAUTH_SECRET", "")
 	c.QQRedirectURI = getenv("QQ_OAUTH_REDIRECT_URI", "")
+	c.WechatWebAppID = getenv("WECHAT_WEB_APPID", "")
+	c.WechatWebSecret = getenv("WECHAT_WEB_SECRET", "")
+	c.WechatWebRedirectURI = getenv("WECHAT_WEB_REDIRECT_URI", "")
 
 	c.WatermarkFontPath = getenv("WATERMARK_FONT_PATH", "")
 	c.SiteName = getenv("SITE_NAME", "泰兴中学校园墙")

@@ -77,3 +77,11 @@ type User struct {
 func (u *User) IsSuperAdmin() bool { return u.Role == RoleSuperAdmin }
 func (u *User) IsAdmin() bool      { return u.Role == RoleAdmin || u.Role == RoleSuperAdmin }
 func (u *User) IsBanned() bool     { return u.Status == UserStatusBanned }
+
+// DisplayName 对外展示名：优先昵称，未设置时回退用户名。
+func (u *User) DisplayName() string {
+	if u.Nickname != "" {
+		return u.Nickname
+	}
+	return u.Username
+}

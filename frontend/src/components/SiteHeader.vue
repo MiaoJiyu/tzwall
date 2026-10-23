@@ -83,7 +83,7 @@ function logout() {
         <template v-if="auth.isLoggedIn">
           <el-dropdown trigger="click">
             <button class="ml-1 flex h-9 items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-sm">
-              <UserIcon :size="16" /> {{ auth.user?.username }}
+              <UserIcon :size="16" /> {{ auth.user?.nickname || auth.user?.username }}
             </button>
             <template #dropdown>
               <el-dropdown-menu>

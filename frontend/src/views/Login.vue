@@ -14,7 +14,7 @@ const route = useRoute()
 const identifier = ref('')
 const password = ref('')
 const loading = ref(false)
-const social = ref({ wechat: false, qq: false })
+const social = ref({ wechat: false, wechat_web: false, qq: false })
 
 onMounted(async () => {
   // QQ/微信 授权回跳：用一次性 code 兑换登录态
@@ -35,6 +35,7 @@ onMounted(async () => {
   }
   social.value = {
     wechat: !!meta.site?.features?.social?.wechat,
+    wechat_web: !!meta.site?.features?.social?.wechat_web,
     qq: !!meta.site?.features?.social?.qq,
   }
 })
@@ -64,8 +65,37 @@ async function qqLogin() {
   }
 }
 
-function wechatTip() {
-  ElMessage.info('微信登录请在「泰兴中学校园墙」微信小程序中使用')
+const wechatChoose = ref(false)
+// 微信登录：按后台实际配置的能力选择流程，避免"仅小程序配置"时误请求网页接口报错
+function wechatLogin() {
+  const canMp = social.value.wechat
+  const canWeb = social.value.wechat_web
+  if (canMp && canWeb) {
+    wechatChoose.value = true // 两种方式都可用，让用户选择
+    return
+  }
+  if (canWeb) {
+    wechatWeb()
+    return
+  }
+  if (canMp) {
+    wechatMiniapp()
+    return
+  }
+  ElMessage.warning('微信登录暂未开放')
+}
+function wechatMiniapp() {
+  wechatChoose.value = false
+  ElMessage.info('请打开「泰兴中学校园墙」微信小程序进行登录')
+}
+async function wechatWeb() {
+  wechatChoose.value = false
+  try {
+    const r: any = await authApi.wechatWebUrl()
+    window.location.href = r.url
+  } catch {
+    ElMessage.info('微信登录请在「泰兴中学校园墙」微信小程序中使用')
+  }
 }
 </script>
 
@@ -103,7 +133,7 @@ function wechatTip() {
             {{ loading ? '登录中…' : '登录' }}
           </button>
 
-          <div v-if="social.wechat || social.qq" class="mt-4">
+          <div v-if="social.wechat || social.wechat_web || social.qq" class="mt-4">
             <div class="flex items-center gap-3 text-xs text-[var(--text-soft)]">
               <span class="h-px flex-1 bg-[var(--border)]"></span>
               第三方账号登录
@@ -114,7 +144,7 @@ function wechatTip() {
                 class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">
                 QQ 登录
               </button>
-              <button v-if="social.wechat" @click="wechatTip"
+              <button v-if="social.wechat || social.wechat_web" @click="wechatLogin"
                 class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">
                 微信登录
               </button>
@@ -129,6 +159,26 @@ function wechatTip() {
       </div>
     </div>
   </div>
+
+  <!-- 微信登录方式选择（仅当小程序与网页两种方式都可用时弹出） -->
+  <el-dialog v-model="wechatChoose" title="微信登录" width="380px">
+    <div class="space-y-3">
+      <button v-if="social.wechat" class="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] p-3 text-left hover:border-[var(--grape)]" @click="wechatMiniapp">
+        <span class="text-lg">📱</span>
+        <span>
+          <span class="block font-medium">微信小程序登录</span>
+          <span class="text-xs text-[var(--text-soft)]">在「泰兴中学校园墙」小程序内登录</span>
+        </span>
+      </button>
+      <button v-if="social.wechat_web" class="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] p-3 text-left hover:border-[var(--grape)]" @click="wechatWeb">
+        <span class="text-lg">💻</span>
+        <span>
+          <span class="block font-medium">网页扫码登录</span>
+          <span class="text-xs text-[var(--text-soft)]">使用微信扫码授权登录</span>
+        </span>
+      </button>
+    </div>
+  </el-dialog>
 </template>
 
 <style scoped>

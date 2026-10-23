@@ -36,6 +36,8 @@ func userView(u *model.User) gin.H {
 		"profile_public":    u.ProfilePublic,
 		"public_fields":     u.PublicFields,
 		"email_verified":    u.EmailVerified,
+		"wechat_bound":      u.WxOpenid != "",
+		"qq_bound":          u.QqOpenid != "",
 		"status":            u.Status,
 		"agreement_version": u.AgreementVersion,
 		"created_at":        u.CreatedAt,

@@ -45,7 +45,7 @@ onMounted(load)
     <template v-else-if="profile">
       <div class="paper-card mb-5 flex items-center gap-4 p-6">
         <img v-if="profile.avatar" :src="profile.avatar" class="h-16 w-16 rounded-full object-cover" alt="" />
-        <div v-else class="flex h-16 w-16 items-center justify-center rounded-full bg-grape-100 text-2xl font-semibold text-[var(--grape)]">{{ (profile.username || '?')[0] }}</div>
+        <div v-else class="flex h-16 w-16 items-center justify-center rounded-full bg-grape-100 text-2xl font-semibold text-[var(--grape)]">{{ (profile.nickname || profile.username || '?')[0] }}</div>
         <div class="flex-1">
           <div class="flex items-center gap-2">
             <h1 class="font-serif-sc text-xl font-bold">{{ profile.nickname || profile.username }}</h1>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, onBeforeUnmount } from 'vue'
+import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Mail, Lock, School, Phone, Loader2, RotateCcw } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
@@ -10,6 +10,56 @@ const meta = useMetaStore()
 const router = useRouter()
 const loading = ref(false)
 const agree = reactive({ user: false, privacy: false, data: false })
+
+// 第三方账号登录/注册
+const social = ref({ wechat: false, wechat_web: false, qq: false })
+const wechatChoose = ref(false)
+onMounted(() => {
+  social.value = {
+    wechat: !!meta.site?.features?.social?.wechat,
+    wechat_web: !!meta.site?.features?.social?.wechat_web,
+    qq: !!meta.site?.features?.social?.qq,
+  }
+})
+async function qqLogin() {
+  try {
+    const r: any = await authApi.qqAuthorize()
+    window.location.href = r.url
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '发起 QQ 登录失败')
+  }
+}
+// 微信登录：按后台实际配置的能力选择流程，避免"仅小程序配置"时误请求网页接口报错
+function wechatLogin() {
+  const canMp = social.value.wechat
+  const canWeb = social.value.wechat_web
+  if (canMp && canWeb) {
+    wechatChoose.value = true
+    return
+  }
+  if (canWeb) {
+    wechatWeb()
+    return
+  }
+  if (canMp) {
+    wechatMiniapp()
+    return
+  }
+  ElMessage.warning('微信登录暂未开放')
+}
+function wechatMiniapp() {
+  wechatChoose.value = false
+  ElMessage.info('请打开「泰兴中学校园墙」微信小程序进行登录')
+}
+async function wechatWeb() {
+  wechatChoose.value = false
+  try {
+    const r: any = await authApi.wechatWebUrl()
+    window.location.href = r.url
+  } catch {
+    ElMessage.info('微信登录请在「泰兴中学校园墙」微信小程序中使用')
+  }
+}
 
 const form = reactive({
   username: '',
@@ -173,6 +223,18 @@ onBeforeUnmount(() => {
       <button class="btn-grape w-full rounded-full py-2.5 font-medium" :disabled="loading" @click="submit">
         {{ loading ? '提交中…' : '注册' }}
       </button>
+
+      <div v-if="social.wechat || social.wechat_web || social.qq" class="pt-1">
+        <div class="flex items-center gap-3 text-xs text-[var(--text-soft)]">
+          <span class="h-px flex-1 bg-[var(--border)]"></span>
+          第三方账号登录 / 注册
+          <span class="h-px flex-1 bg-[var(--border)]"></span>
+        </div>
+        <div class="mt-3 flex gap-3">
+          <button v-if="social.qq" @click="qqLogin" class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">QQ 登录</button>
+          <button v-if="social.wechat || social.wechat_web" @click="wechatLogin" class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">微信登录</button>
+        </div>
+      </div>
     </div>
     <p class="mt-4 text-center text-sm text-[var(--text-soft)]">
       已有账号？<router-link to="/login" class="text-[var(--grape)]">去登录</router-link>
@@ -189,6 +251,26 @@ onBeforeUnmount(() => {
           <button class="btn-grape rounded-full px-5 py-2 text-sm font-medium text-white" @click="qqModal = false">我知道了</button>
         </div>
       </template>
+    </el-dialog>
+
+    <!-- 微信登录方式选择（仅当小程序与网页两种方式都可用时弹出） -->
+    <el-dialog v-model="wechatChoose" title="微信登录" width="380px">
+      <div class="space-y-3">
+        <button v-if="social.wechat" class="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] p-3 text-left hover:border-[var(--grape)]" @click="wechatMiniapp">
+          <span class="text-lg">📱</span>
+          <span>
+            <span class="block font-medium">微信小程序登录</span>
+            <span class="text-xs text-[var(--text-soft)]">在「泰兴中学校园墙」小程序内登录</span>
+          </span>
+        </button>
+        <button v-if="social.wechat_web" class="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] p-3 text-left hover:border-[var(--grape)]" @click="wechatWeb">
+          <span class="text-lg">💻</span>
+          <span>
+            <span class="block font-medium">网页扫码登录</span>
+            <span class="text-xs text-[var(--text-soft)]">使用微信扫码授权登录</span>
+          </span>
+        </button>
+      </div>
     </el-dialog>
   </div>
 </template>

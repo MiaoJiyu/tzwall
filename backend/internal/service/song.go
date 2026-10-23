@@ -97,10 +97,10 @@ func (s *SongService) fillUsernames(songs []model.Song) {
 		ids = append(ids, x.UserID)
 	}
 	var users []model.User
-	s.db.Select("id, username").Where("id IN ?", ids).Find(&users)
+	s.db.Select("id, username, nickname").Where("id IN ?", ids).Find(&users)
 	m := make(map[uint]string, len(users))
 	for _, u := range users {
-		m[u.ID] = u.Username
+		m[u.ID] = u.DisplayName()
 	}
 	for i := range songs {
 		songs[i].Username = m[songs[i].UserID]
@@ -171,7 +171,7 @@ func (s *SongService) Create(u *model.User, title, artist, note string) (*model.
 	if err := s.db.Create(song).Error; err != nil {
 		return nil, errs.New(errs.CodeInternal, err)
 	}
-	song.Username = u.Username
+	song.Username = u.DisplayName()
 	return song, nil
 }
 

@@ -52,8 +52,13 @@ func (h *MetaHandler) Site(c *gin.Context) {
 			"mailer":     h.cfg.MailerConfigured,
 			"moderation": h.cfg.ModerationConfigured,
 			"social": gin.H{
-				"wechat": h.store.Get("wechat_mp_appid") != "" || h.cfg.WechatMPAppID != "",
-				"qq":     h.store.Get("qq_oauth_appid") != "" || h.cfg.QQAppID != "",
+				"wechat": (h.store.Get("wechat_mp_appid") != "" || h.cfg.WechatMPAppID != "") &&
+					(h.store.SecretValue("wechat_mp_secret") != "" || h.cfg.WechatMPSecret != ""),
+				"wechat_web": (h.store.Get("wechat_web_appid") != "" || h.cfg.WechatWebAppID != "") &&
+					(h.store.SecretValue("wechat_web_secret") != "" || h.cfg.WechatWebSecret != ""),
+				"qq": (h.store.Get("qq_oauth_appid") != "" || h.cfg.QQAppID != "") &&
+					(h.store.SecretValue("qq_oauth_secret") != "" || h.cfg.QQSecret != "") &&
+					(h.store.Get("qq_oauth_redirect_uri") != "" || h.cfg.QQRedirectURI != ""),
 			},
 		},
 	})

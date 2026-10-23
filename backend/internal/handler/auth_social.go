@@ -26,12 +26,15 @@ func userSocialView(u *model.User) gin.H {
 		"nickname":       u.Nickname,
 		"avatar":         u.Avatar,
 		"email_verified": u.EmailVerified,
+		"wechat_bound":   u.WxOpenid != "",
+		"qq_bound":       u.QqOpenid != "",
 		"status":         u.Status,
 		"created_at":     u.CreatedAt,
 	}
 }
 
 // WechatLogin 微信小程序登录：小程序端 wx.login() 拿 code 调用本接口。
+// 已绑定账号返回 token；未绑定返回 need_register + ticket，要求用户填写用户名+密码后再注册。
 func (h *AuthHandler) WechatLogin(c *gin.Context) {
 	var req struct {
 		Code string `json:"code"`
@@ -40,13 +43,37 @@ func (h *AuthHandler) WechatLogin(c *gin.Context) {
 		response.FailCode(c, errs.ErrValidation, "")
 		return
 	}
-	tok, u, isNew, err := h.svc.WechatLogin(req.Code)
+	tok, u, ticket, err := h.svc.WechatLogin(req.Code)
 	if err != nil {
 		code, _ := errs.As(err)
 		response.FailCode(c, code, err.Error())
 		return
 	}
-	response.OK(c, gin.H{"token": tok, "user": userSocialView(u), "is_new": isNew})
+	if ticket != "" {
+		response.OK(c, gin.H{"need_register": true, "ticket": ticket})
+		return
+	}
+	response.OK(c, gin.H{"token": tok, "user": userSocialView(u), "is_new": false})
+}
+
+// WechatRegister 小程序首次登录完成注册（用户名+密码）。
+func (h *AuthHandler) WechatRegister(c *gin.Context) {
+	var req struct {
+		Ticket   string `json:"ticket"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	tok, u, err := h.svc.WechatRegister(req.Ticket, req.Username, req.Password)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"token": tok, "user": userSocialView(u), "is_new": true})
 }
 
 // QQAuthorize 返回 QQ 授权地址（含防 CSRF 的 state）。
@@ -60,7 +87,7 @@ func (h *AuthHandler) QQAuthorize(c *gin.Context) {
 	response.OK(c, gin.H{"url": authorizeURL, "state": state})
 }
 
-// QQCallback QQ 授权回调（由 QQ 重定向到本站）。校验 state 后回跳前端并携带一次性兑换码。
+// QQCallback QQ 授权回调（由 QQ 重定向到本站）。按 state 区分「登录」或「绑定当前账号」。
 func (h *AuthHandler) QQCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
@@ -68,13 +95,145 @@ func (h *AuthHandler) QQCallback(c *gin.Context) {
 		h.redirectSocial(c, "", "缺少授权 code")
 		return
 	}
-	if !h.svc.QQStateValid(state) {
+	mode, uid, ok := h.svc.QQStateConsume(state)
+	if !ok {
 		h.redirectSocial(c, "", "state 校验失败，请重试")
+		return
+	}
+	if mode == "bind" {
+		if err := h.svc.BindProvider(uid, "qq", code); err != nil {
+			h.redirectProfileBind(c, "qq", err.Error())
+			return
+		}
+		h.redirectProfileBind(c, "qq", "")
 		return
 	}
 	u, isNew, err := h.svc.QQCallback(code)
 	if err != nil {
 		h.redirectSocial(c, "", "QQ 登录失败："+err.Error())
+		return
+	}
+	exchange, err := h.svc.SaveSocialCode(u.ID, isNew)
+	if err != nil {
+		h.redirectSocial(c, "", "登录失败，请重试")
+		return
+	}
+	h.redirectSocial(c, exchange, "")
+}
+
+// QQBindAuthorize 生成“绑定 QQ 到当前账号”的授权地址（需登录）。
+func (h *AuthHandler) QQBindAuthorize(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	if u == nil {
+		response.FailCode(c, errs.CodeUnauthorized, "")
+		return
+	}
+	authorizeURL, _, err := h.svc.QQAuthorizeBind(u.ID)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"url": authorizeURL})
+}
+
+// redirectProfileBind 绑定完成后回跳账号中心并携带结果。
+func (h *AuthHandler) redirectProfileBind(c *gin.Context, provider, errMsg string) {
+	base := h.svc.SiteBaseURL()
+	target := base + "/profile?bind=" + url.QueryEscape(provider)
+	if errMsg != "" {
+		target += "&bind_error=" + url.QueryEscape(errMsg)
+	} else {
+		target += "&bind_ok=1"
+	}
+	c.Redirect(http.StatusFound, target)
+}
+
+// WechatWebAuthorize 生成微信网页扫码登录授权地址（无需登录）。
+func (h *AuthHandler) WechatWebAuthorize(c *gin.Context) {
+	u, err := h.svc.WechatWebAuthorize("login", 0)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"url": u})
+}
+
+// WechatWebBindAuthorize 生成微信网页扫码绑定授权地址（需登录）。
+func (h *AuthHandler) WechatWebBindAuthorize(c *gin.Context) {
+	cu := middleware.CurrentUser(c)
+	if cu == nil {
+		response.FailCode(c, errs.CodeUnauthorized, "")
+		return
+	}
+	u, err := h.svc.WechatWebAuthorize("bind", cu.ID)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"url": u})
+}
+
+// WechatBindCode 生成微信绑定码（需登录；用于仅小程序场景下网页发起绑定）。
+func (h *AuthHandler) WechatBindCode(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	if u == nil {
+		response.FailCode(c, errs.CodeUnauthorized, "")
+		return
+	}
+	code, err := h.svc.CreateBindCode(u.ID)
+	if err != nil {
+		c2, _ := errs.As(err)
+		response.FailCode(c, c2, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"code": code, "expires_min": 10})
+}
+
+// WechatBindByCode 小程序内用绑定码完成绑定（公开：凭绑定码 + wx.login 的 code）。
+func (h *AuthHandler) WechatBindByCode(c *gin.Context) {
+	var req struct {
+		BindCode string `json:"bind_code"`
+		Code     string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	if err := h.svc.BindByCode(req.BindCode, req.Code); err != nil {
+		c2, _ := errs.As(err)
+		response.FailCode(c, c2, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
+// WechatWebCallback 微信网页授权回调：按 state 区分登录或绑定。
+func (h *AuthHandler) WechatWebCallback(c *gin.Context) {
+	code := c.Query("code")
+	state := c.Query("state")
+	if strings.TrimSpace(code) == "" {
+		h.redirectSocial(c, "", "缺少授权 code")
+		return
+	}
+	mode, uid, ok := h.svc.WechatWebStateConsume(state)
+	if !ok {
+		h.redirectSocial(c, "", "state 校验失败，请重试")
+		return
+	}
+	if mode == "bind" {
+		if err := h.svc.WechatWebBind(uid, code); err != nil {
+			h.redirectProfileBind(c, "wechat", err.Error())
+			return
+		}
+		h.redirectProfileBind(c, "wechat", "")
+		return
+	}
+	u, isNew, err := h.svc.WechatWebLogin(code)
+	if err != nil {
+		h.redirectSocial(c, "", "微信登录失败："+err.Error())
 		return
 	}
 	exchange, err := h.svc.SaveSocialCode(u.ID, isNew)

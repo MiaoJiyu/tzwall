@@ -63,7 +63,10 @@ var ConfigItems = []ConfigItem{
 	{Key: "qq_oauth_appid", Group: GroupAccount, Label: "QQ 互联 AppID", Type: TypeString, Default: "", Desc: "QQ OAuth 登录用 AppID；留空则禁用 QQ 登录"},
 	{Key: "qq_oauth_secret", Group: GroupAccount, Label: "QQ 互联 AppKey", Type: TypeSecret, Default: "", Desc: "QQ OAuth 登录用 AppKey；加密存储，留空表示不修改"},
 	{Key: "qq_oauth_redirect_uri", Group: GroupAccount, Label: "QQ 回调地址", Type: TypeString, Default: "", Desc: "QQ 授权完成后的回调地址，需与 QQ 互联后台配置一致"},
-	{Key: "social_auto_create", Group: GroupAccount, Label: "社交登录自动建号", Type: TypeBool, Default: "true", Desc: "开启后，微信/QQ 首次登录自动创建账号；关闭则要求先注册或绑定已有账号"},
+	{Key: "wechat_web_appid", Group: GroupAccount, Label: "微信网页应用 AppID", Type: TypeString, Default: "", Desc: "微信开放平台·网站应用 AppID，用于网页扫码登录/绑定；留空则禁用网页微信"},
+	{Key: "wechat_web_secret", Group: GroupAccount, Label: "微信网页应用 AppSecret", Type: TypeSecret, Default: "", Desc: "微信网页应用 AppSecret；加密存储，留空表示不修改"},
+	{Key: "wechat_web_redirect_uri", Group: GroupAccount, Label: "微信网页回调地址", Type: TypeString, Default: "", Desc: "微信网页授权回调地址，需与微信开放平台配置一致；留空则用站点地址 + /api/auth/wechat/web/callback"},
+	{Key: "social_auto_create", Group: GroupAccount, Label: "社交登录自动建号（QQ/网页微信）", Type: TypeBool, Default: "true", Desc: "开启后，QQ/网页微信首次登录自动创建账号；小程序微信首次登录始终要求填写用户名与密码"},
 	{Key: "qq_mail_skip_verify", Group: GroupAccount, Label: "如果是QQ邮箱，直接注册，不进行验证", Type: TypeBool, Default: "false", Desc: "开启后，QQ 邮箱（域名恰为 qq.com）注册跳过邮箱验证直接完成，且不弹提示；关闭则按常规验证流程并提示查收"},
 
 	// 发帖与评论

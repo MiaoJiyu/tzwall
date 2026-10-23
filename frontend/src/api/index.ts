@@ -19,6 +19,10 @@ export const authApi = {
   socialExchange: (code: string) => http.post('/auth/social/exchange', { code }),
   bindProvider: (p: { provider: string; code: string }) => http.post('/auth/bind', p),
   unbindProvider: (p: { provider: string }) => http.post('/auth/unbind', p),
+  qqBindUrl: () => http.get('/auth/qq/bind/url'),
+  wechatWebUrl: () => http.get('/auth/wechat/web/url'),
+  wechatWebBindUrl: () => http.get('/auth/wechat/web/bind/url'),
+  wechatBindCode: () => http.post('/auth/wechat/bind-code'),
 }
 
 export const submissionApi = {
