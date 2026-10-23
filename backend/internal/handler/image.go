@@ -94,8 +94,8 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	if h.mod != nil && h.mod.Configured() {
 		v, err := h.mod.SubmitImage(c.Request.Context(), "img-"+key, key)
 		if err != nil {
-			audit = model.ModerationReview
-			slog.Default().Warn("图片审核调用失败，转人工", "key", key, "err", err.Error())
+			audit = model.ModerationFailed // 基础设施异常，区别于内容可疑(review)
+			slog.Default().Warn("图片审核调用失败", "key", key, "err", err.Error())
 		} else {
 			audit = moderation.StatusOf(v)
 		}

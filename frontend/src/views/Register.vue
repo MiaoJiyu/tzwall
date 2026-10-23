@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Mail, Lock, School, Phone, Loader2, RotateCcw } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { authApi } from '@/api'
 import { useMetaStore } from '@/stores/meta'
+import MiniProgramQrDialog from '@/components/MiniProgramQrDialog.vue'
 
 const meta = useMetaStore()
 const router = useRouter()
@@ -14,6 +15,8 @@ const agree = reactive({ user: false, privacy: false, data: false })
 // 第三方账号登录/注册
 const social = ref({ wechat: false, wechat_web: false, qq: false })
 const wechatChoose = ref(false)
+const mp = computed(() => meta.site?.miniprogram || {})
+const mpLoginDialog = ref(false)
 onMounted(() => {
   social.value = {
     wechat: !!meta.site?.features?.social?.wechat,
@@ -49,7 +52,7 @@ function wechatLogin() {
 }
 function wechatMiniapp() {
   wechatChoose.value = false
-  ElMessage.info('请打开「泰兴中学校园墙」微信小程序进行登录')
+  mpLoginDialog.value = true // 登录/注册场景：弹「登录小程序码」
 }
 async function wechatWeb() {
   wechatChoose.value = false
@@ -272,6 +275,9 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </el-dialog>
+
+    <!-- 登录/注册场景小程序码（与绑定场景独立） -->
+    <MiniProgramQrDialog v-model="mpLoginDialog" title="微信登录 / 注册" :name="mp.name" :qrcode="mp.login_qrcode" :desc="mp.login_desc" />
   </div>
 </template>
 

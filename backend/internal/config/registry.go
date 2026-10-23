@@ -67,6 +67,11 @@ var ConfigItems = []ConfigItem{
 	{Key: "wechat_web_secret", Group: GroupAccount, Label: "微信网页应用 AppSecret", Type: TypeSecret, Default: "", Desc: "微信网页应用 AppSecret；加密存储，留空表示不修改"},
 	{Key: "wechat_web_redirect_uri", Group: GroupAccount, Label: "微信网页回调地址", Type: TypeString, Default: "", Desc: "微信网页授权回调地址，需与微信开放平台配置一致；留空则用站点地址 + /api/auth/wechat/web/callback"},
 	{Key: "social_auto_create", Group: GroupAccount, Label: "社交登录自动建号（QQ/网页微信）", Type: TypeBool, Default: "true", Desc: "开启后，QQ/网页微信首次登录自动创建账号；小程序微信首次登录始终要求填写用户名与密码"},
+	{Key: "miniprogram_name", Group: GroupAccount, Label: "小程序名称", Type: TypeString, Default: "泰兴中学校园墙", Desc: "展示在微信小程序码弹窗中"},
+	{Key: "miniprogram_login_qrcode", Group: GroupAccount, Label: "登录小程序码图片地址", Type: TypeString, Default: "", Desc: "点击「微信登录/注册」时弹窗展示的小程序码图片 URL"},
+	{Key: "miniprogram_login_desc", Group: GroupAccount, Label: "登录说明文案", Type: TypeText, Default: "请使用微信扫描小程序码，在小程序内完成登录/注册。", Desc: "登录弹窗中的说明文字"},
+	{Key: "miniprogram_bind_qrcode", Group: GroupAccount, Label: "绑定小程序码图片地址", Type: TypeString, Default: "", Desc: "个人中心点击「绑定微信」时弹窗展示的小程序码图片 URL（与登录码区分）"},
+	{Key: "miniprogram_bind_desc", Group: GroupAccount, Label: "绑定说明文案", Type: TypeText, Default: "请使用微信扫描小程序码，在小程序内完成微信绑定。", Desc: "绑定弹窗中的说明文字"},
 	{Key: "qq_mail_skip_verify", Group: GroupAccount, Label: "如果是QQ邮箱，直接注册，不进行验证", Type: TypeBool, Default: "false", Desc: "开启后，QQ 邮箱（域名恰为 qq.com）注册跳过邮箱验证直接完成，且不弹提示；关闭则按常规验证流程并提示查收"},
 
 	// 发帖与评论

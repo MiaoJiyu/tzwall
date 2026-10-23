@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useMetaStore } from '@/stores/meta'
 import { authApi } from '@/api'
+import MiniProgramQrDialog from '@/components/MiniProgramQrDialog.vue'
 
 const auth = useAuthStore()
 const meta = useMetaStore()
@@ -114,11 +115,16 @@ async function bindQQ() {
     ElMessage.error(e?.response?.data?.message || '发起 QQ 绑定失败，请确认已配置 QQ 互联')
   }
 }
-const bindCodeDialog = ref(false)
-const bindCodeData = ref<any>({ code: '', expires_min: 10 })
+const mp = computed(() => meta.site?.miniprogram || {})
+const mpBindDialog = ref(false)
 async function bindWechat() {
-  const canWeb = !!meta.site?.features?.social?.wechat_web
   const canMp = !!meta.site?.features?.social?.wechat
+  const canWeb = !!meta.site?.features?.social?.wechat_web
+  if (canMp) {
+    // 绑定场景：弹「绑定小程序码」（与登录码独立，绝不混用）
+    mpBindDialog.value = true
+    return
+  }
   if (canWeb) {
     // 已配置微信网页应用：走网页扫码绑定
     try {
@@ -129,27 +135,7 @@ async function bindWechat() {
     }
     return
   }
-  if (canMp) {
-    // 仅小程序：生成绑定码，在小程序内完成绑定
-    try {
-      const r: any = await authApi.wechatBindCode()
-      bindCodeData.value = r
-      bindCodeDialog.value = true
-    } catch (e: any) {
-      ElMessage.error(e?.response?.data?.message || '生成微信绑定码失败')
-    }
-    return
-  }
   ElMessage.warning('微信登录/绑定暂未开放')
-}
-async function checkBindStatus() {
-  await refreshUser()
-  if (auth.user?.wechat_bound) {
-    ElMessage.success('微信绑定成功')
-    bindCodeDialog.value = false
-  } else {
-    ElMessage.info('尚未检测到绑定，请在小程序内完成绑定后再点「刷新」')
-  }
 }
 async function unbind(provider: 'wechat' | 'qq') {
   const name = provider === 'wechat' ? '微信' : 'QQ'
@@ -243,27 +229,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 微信绑定码（仅配置小程序、未配置网页微信时使用） -->
-      <el-dialog v-model="bindCodeDialog" title="绑定微信" width="420px">
-        <div class="space-y-3 text-sm">
-          <p class="text-[var(--text-soft)]">当前未配置微信网页授权。请在微信小程序中完成绑定：</p>
-          <ol class="list-decimal space-y-1 pl-5 text-[var(--text-soft)]">
-            <li>打开「泰兴中学校园墙」微信小程序</li>
-            <li>进入「我的 → 绑定微信」</li>
-            <li>输入下方绑定码完成绑定</li>
-          </ol>
-          <div class="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-4 text-center">
-            <div class="font-mono text-2xl font-bold tracking-widest text-[var(--grape)]">{{ bindCodeData.code }}</div>
-            <div class="mt-1 text-xs text-[var(--text-soft)]">10 分钟内有效，一次使用</div>
-          </div>
-        </div>
-        <template #footer>
-          <div class="flex justify-end gap-2">
-            <button class="rounded-full px-4 py-1.5 text-sm" @click="bindCodeDialog = false">关闭</button>
-            <button class="btn-grape rounded-full px-4 py-1.5 text-sm text-white" @click="checkBindStatus">我已绑定，刷新</button>
-          </div>
-        </template>
-      </el-dialog>
+      <!-- 绑定场景小程序码（与登录码独立） -->
+      <MiniProgramQrDialog v-model="mpBindDialog" title="绑定微信" :name="mp.name" :qrcode="mp.bind_qrcode" :desc="mp.bind_desc" />
 
       <div class="paper-card p-6">
         <h2 class="mb-1 font-semibold">公开个人主页</h2>

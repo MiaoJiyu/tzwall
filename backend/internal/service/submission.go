@@ -147,14 +147,10 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 	if len(req.ImageIDs) > 0 {
 		s.db.Model(&model.SubmissionImage{}).Where("id IN ? AND submission_id IS NULL", req.ImageIDs).
 			Update("submission_id", sub.ID)
-		var blocked int64
-		s.db.Model(&model.SubmissionImage{}).
-			Where("submission_id = ? AND audit_status = ?", sub.ID, model.ModerationBlock).Count(&blocked)
-		var bad int64
-		s.db.Model(&model.SubmissionImage{}).
-			Where("submission_id = ? AND audit_status <> ?", sub.ID, model.ModerationPass).Count(&bad)
+		var statuses []string
+		s.db.Model(&model.SubmissionImage{}).Where("submission_id = ?", sub.ID).Pluck("audit_status", &statuses)
 		switch {
-		case blocked > 0:
+		case mediaHasBlock(statuses):
 			note := "内容未通过审核：图片涉嫌违规"
 			s.db.Model(sub).Updates(map[string]any{
 				"status":       model.StatusRejected,
@@ -164,7 +160,7 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 			sub.Status = model.StatusRejected
 			sub.AuditStatus = model.ModerationBlock
 			sub.AdminNote = note
-		case bad > 0 && sub.Status == model.StatusApproved:
+		case sub.Status == model.StatusApproved && mediaNeedsManualReview(statuses):
 			s.db.Model(sub).Update("status", model.StatusPending)
 			sub.Status = model.StatusPending
 		}
@@ -174,14 +170,10 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 	if len(req.VideoIDs) > 0 {
 		s.db.Model(&model.SubmissionVideo{}).Where("id IN ? AND submission_id IS NULL", req.VideoIDs).
 			Update("submission_id", sub.ID)
-		var blocked int64
-		s.db.Model(&model.SubmissionVideo{}).
-			Where("submission_id = ? AND audit_status = ?", sub.ID, model.ModerationBlock).Count(&blocked)
-		var bad int64
-		s.db.Model(&model.SubmissionVideo{}).
-			Where("submission_id = ? AND audit_status <> ?", sub.ID, model.ModerationPass).Count(&bad)
+		var statuses []string
+		s.db.Model(&model.SubmissionVideo{}).Where("submission_id = ?", sub.ID).Pluck("audit_status", &statuses)
 		switch {
-		case blocked > 0:
+		case mediaHasBlock(statuses):
 			note := "内容未通过审核：视频涉嫌违规"
 			s.db.Model(sub).Updates(map[string]any{
 				"status":       model.StatusRejected,
@@ -191,7 +183,7 @@ func (s *SubmissionService) Create(user *model.User, req CreateSubmissionReq) (*
 			sub.Status = model.StatusRejected
 			sub.AuditStatus = model.ModerationBlock
 			sub.AdminNote = note
-		case bad > 0 && sub.Status == model.StatusApproved:
+		case sub.Status == model.StatusApproved && mediaNeedsManualReview(statuses):
 			s.db.Model(sub).Update("status", model.StatusPending)
 			sub.Status = model.StatusPending
 		}
@@ -281,6 +273,28 @@ func reasonOr(s, def string) string {
 		return def
 	}
 	return strings.TrimSpace(s)
+}
+
+// mediaHasBlock 是否存在明确违规(block)的媒体。
+func mediaHasBlock(statuses []string) bool {
+	for _, s := range statuses {
+		if s == model.ModerationBlock {
+			return true
+		}
+	}
+	return false
+}
+
+// mediaNeedsManualReview 媒体是否需要转人工复核：仅「内容可疑(review)」需要。
+// 审核失败(failed)、未审(pending/none)、通过(pass) 均不需要人工，
+// 避免因机审基础设施异常（如文件过大、解码失败）误伤合规稿件。
+func mediaNeedsManualReview(statuses []string) bool {
+	for _, s := range statuses {
+		if s == model.ModerationReview {
+			return true
+		}
+	}
+	return false
 }
 
 // Update 作者修改自己的稿件并重新提交审核。

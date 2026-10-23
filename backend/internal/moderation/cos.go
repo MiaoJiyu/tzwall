@@ -68,7 +68,7 @@ func (m *cosModeration) SubmitText(ctx context.Context, bizID, text string) (Ver
 	raw, err := m.postJSON(ctx, "/text/auditing", body)
 	if err != nil {
 		m.record(bizID, "text", "", "", model.ModerationFailed, "", raw)
-		return Verdict{Pass: false, Reason: "审核调用失败，转人工"}, err
+		return Verdict{Pass: false, Errored: true, Reason: "审核调用失败，转人工"}, err
 	}
 	v, jobID := parseCI(raw)
 	m.record(bizID, "text", "", jobID, statusOf(v), v.Reason, raw)
@@ -84,7 +84,7 @@ func (m *cosModeration) SubmitImage(ctx context.Context, bizID, key string) (Ver
 	raw, err := m.postJSON(ctx, "/image/auditing", body)
 	if err != nil {
 		m.record(bizID, "image", key, "", model.ModerationFailed, "", raw)
-		return Verdict{Pass: false, Reason: "审核调用失败，转人工"}, err
+		return Verdict{Pass: false, Errored: true, Reason: "审核调用失败，转人工"}, err
 	}
 	v, jobID := parseCI(raw)
 	m.record(bizID, "image", key, jobID, statusOf(v), v.Reason, raw)
@@ -164,20 +164,21 @@ func parseCI(raw string) (Verdict, string) {
 	if strings.HasPrefix(raw, "<") {
 		var r ciXML
 		if err := xml.Unmarshal([]byte(raw), &r); err != nil {
-			return Verdict{Pass: false, Reason: "审核响应解析失败"}, ""
+			return Verdict{Pass: false, Errored: true, Reason: "审核响应解析失败"}, ""
 		}
 		j := r.JobsDetail
 		if j.Code != "" && j.Code != "Success" {
-			return Verdict{Pass: false, Reason: "审核异常：" + j.Code + " " + j.Message}, ""
+			// 基础设施异常（如 InvalidArgument File is too large / Decode failed），非内容判定
+			return Verdict{Pass: false, Errored: true, Reason: "审核异常：" + j.Code + " " + j.Message}, ""
 		}
 		return verdictOf(atoi(j.Result), j.Label), j.JobId
 	}
 	var r ciResponse
 	if err := json.Unmarshal([]byte(raw), &r); err != nil {
-		return Verdict{Pass: false, Reason: "审核响应解析失败"}, ""
+		return Verdict{Pass: false, Errored: true, Reason: "审核响应解析失败"}, ""
 	}
 	if len(r.JobsDetail) == 0 {
-		return Verdict{Pass: false, Reason: "审核无结果"}, ""
+		return Verdict{Pass: false, Errored: true, Reason: "审核无结果"}, ""
 	}
 	j := r.JobsDetail[0]
 	return verdictOf(j.Result, j.Label), j.JobId
@@ -286,6 +287,8 @@ func statusOf(v Verdict) string {
 		return model.ModerationBlock
 	case v.Pass:
 		return model.ModerationPass
+	case v.Errored:
+		return model.ModerationFailed // 基础设施异常：不可与"内容可疑(review)"混为一谈
 	default:
 		return model.ModerationReview
 	}

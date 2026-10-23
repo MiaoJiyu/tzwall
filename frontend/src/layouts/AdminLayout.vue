@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api'
 import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity, ScanLine, Ticket, Megaphone } from 'lucide-vue-next'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 
-function logout() {
+async function logout() {
+  try {
+    await authApi.logout()
+  } catch {
+    /* 登出接口异常不影响本地登出 */
+  }
   auth.logout()
+  ElMessage.success('已退出登录')
   router.push('/')
 }
 </script>

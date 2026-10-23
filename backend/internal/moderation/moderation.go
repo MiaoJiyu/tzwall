@@ -12,6 +12,7 @@ import (
 type Verdict struct {
 	Pass    bool
 	Blocked bool
+	Errored bool // 审核基础设施异常（如文件过大/解码失败/调用失败），非内容判定
 	Reason  string
 }
 

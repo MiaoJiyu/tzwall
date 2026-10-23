@@ -43,6 +43,13 @@ func (h *MetaHandler) Site(c *gin.Context) {
 	}
 	response.OK(c, gin.H{
 		"site_name":          siteName,
+		"miniprogram": gin.H{
+			"name":         h.store.Get("miniprogram_name"),
+			"login_qrcode": h.store.Get("miniprogram_login_qrcode"),
+			"login_desc":   h.store.Get("miniprogram_login_desc"),
+			"bind_qrcode":  h.store.Get("miniprogram_bind_qrcode"),
+			"bind_desc":    h.store.Get("miniprogram_bind_desc"),
+		},
 		"footer_icp":         h.store.Get("footer_icp"),
 		"footer_psba":        h.store.Get("footer_psba"),
 		"footer_custom":      h.store.Get("footer_custom"),

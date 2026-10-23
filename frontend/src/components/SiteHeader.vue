@@ -2,9 +2,10 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Plus, Home, FileText, User as UserIcon, Shield, ShieldAlert, LogOut, Menu, Music, BarChart3, Ticket, MessageSquare } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useMetaStore } from '@/stores/meta'
-import { chatApi } from '@/api'
+import { authApi, chatApi } from '@/api'
 import ThemeToggle from './ThemeToggle.vue'
 
 const auth = useAuthStore()
@@ -43,9 +44,16 @@ function go(path: string) {
   mobileOpen.value = false
   router.push(path)
 }
-function logout() {
-  auth.logout()
+async function logout() {
   mobileOpen.value = false
+  // 尽力通知后端；失败（401/网络异常）静默忽略，不影响本地登出
+  try {
+    await authApi.logout()
+  } catch {
+    /* ignore */
+  }
+  auth.logout()
+  ElMessage.success('已退出登录')
   router.push('/')
 }
 </script>

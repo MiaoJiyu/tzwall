@@ -221,9 +221,9 @@ func (h *ModerationHandler) reconcileSubmission(subID uint) {
 	}
 	var badImgs, badVids int64
 	h.db.Model(&model.SubmissionImage{}).
-		Where("submission_id = ? AND audit_status <> ?", subID, model.ModerationPass).Count(&badImgs)
+		Where("submission_id = ? AND audit_status = ?", subID, model.ModerationReview).Count(&badImgs)
 	h.db.Model(&model.SubmissionVideo{}).
-		Where("submission_id = ? AND audit_status <> ?", subID, model.ModerationPass).Count(&badVids)
+		Where("submission_id = ? AND audit_status = ?", subID, model.ModerationReview).Count(&badVids)
 	if badImgs == 0 && badVids == 0 {
 		h.db.Model(&model.Submission{}).Where("id = ?", subID).Update("status", model.StatusApproved)
 	}
