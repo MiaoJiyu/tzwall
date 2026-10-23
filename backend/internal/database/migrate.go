@@ -42,6 +42,8 @@ func Migrate(db *gorm.DB, log *slog.Logger) error {
 		&model.TicketReply{},
 		&model.Conversation{},
 		&model.Message{},
+		&model.Announcement{},
+		&model.AnnouncementConfirm{},
 	); err != nil {
 		return err
 	}

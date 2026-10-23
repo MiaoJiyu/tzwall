@@ -3,14 +3,53 @@ import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Flame, Clock, Plus, Search } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { submissionApi, adminApi } from '@/api'
+import { submissionApi, adminApi, announcementApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import SubmissionCard from '@/components/SubmissionCard.vue'
 import PollWidget from '@/components/PollWidget.vue'
+import AnnouncementBoard from '@/components/AnnouncementBoard.vue'
 import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+
+// 首页公告（常驻于校园热榜下方）；要求确认者首次展示时弹窗，按用户记录确认态。
+const announcements = ref<any[]>([])
+const confirmDialog = ref(false)
+const confirmTarget = ref<any>(null)
+
+async function loadAnnouncements() {
+  try {
+    const r = await announcementApi.list()
+    announcements.value = r.items || []
+    maybeConfirm()
+  } catch {
+    announcements.value = []
+  }
+}
+// 找到首个“需确认且本人未确认”的公告，弹出确认窗口（仅登录用户；游客不弹）
+function maybeConfirm() {
+  if (!auth.isLoggedIn) return
+  const target = announcements.value.find((a: any) => a.require_confirm && !a.confirmed)
+  if (target) {
+    confirmTarget.value = target
+    confirmDialog.value = true
+  }
+}
+async function confirmAnn() {
+  if (!confirmTarget.value) return
+  const id = confirmTarget.value.id
+  try {
+    await announcementApi.confirm(id)
+  } catch {
+    /* 忽略网络异常，仅本地标记 */
+  }
+  const t = announcements.value.find((a: any) => a.id === id)
+  if (t) t.confirmed = true
+  confirmTarget.value = null
+  confirmDialog.value = false
+  maybeConfirm() // 弹出下一个待确认
+}
 const items = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -74,6 +113,7 @@ onMounted(() => {
   load()
   loadHot()
   loadTags()
+  loadAnnouncements()
 })
 </script>
 
@@ -113,6 +153,8 @@ onMounted(() => {
           </button>
         </div>
 
+        <div class="lg:hidden"><AnnouncementBoard :items="announcements" /></div>
+
         <PollWidget />
 
         <div v-if="items.length" class="space-y-4">
@@ -143,9 +185,22 @@ onMounted(() => {
             </li>
           </ol>
         </div>
+        <!-- 校园公告：常驻显示于校园热榜下方 -->
+        <AnnouncementBoard :items="announcements" />
       </aside>
     </div>
 
     <PenaltyDialog v-model="showPenalty" :user-id="penaltyUser" :username="penaltyName" @done="load" />
+
+    <!-- 要求确认公告首次展示时弹出，确认后按用户不再重复 -->
+    <el-dialog v-model="confirmDialog" title="公告确认" width="420px" :close-on-click-modal="false">
+      <p class="font-medium text-[var(--text)]">{{ confirmTarget?.title }}</p>
+      <p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-soft)]">{{ confirmTarget?.content }}</p>
+      <template #footer>
+        <div class="flex justify-end">
+          <button class="btn-grape rounded-full px-5 py-2 text-sm font-medium text-white" @click="confirmAnn">我已阅读并确认</button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>

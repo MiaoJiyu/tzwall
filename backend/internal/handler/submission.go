@@ -50,8 +50,10 @@ func submissionView(sub *model.Submission, viewer *model.User, myAttitude int) g
 		viewerUID = int(viewer.ID)
 	}
 	authorTitle := ""
+	authorAvatar := ""
 	if !sub.Anonymous && sub.User != nil {
 		authorTitle = sub.User.Title
+		authorAvatar = sub.User.Avatar
 	}
 	// 作者可执行的操作（权威判定，前端据此展示“修改/撤回”）
 	canEdit, canWithdraw := false, false
@@ -95,6 +97,7 @@ func submissionView(sub *model.Submission, viewer *model.User, myAttitude int) g
 		"anonymous":       sub.Anonymous,
 		"author":          author,
 		"author_title":    authorTitle,
+		"author_avatar":   authorAvatar,
 		"status":          sub.Status,
 		"admin_note":      sub.AdminNote,
 		"contact":         contact,

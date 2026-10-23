@@ -124,9 +124,10 @@ func (s *CommentService) List(submissionID uint, isAdmin bool) ([]*model.Comment
 		c := byID[all[i].ID]
 		// 附加作者名与称号
 		var u model.User
-		if err := s.db.Select("username", "title").First(&u, c.UserID).Error; err == nil {
+		if err := s.db.Select("username", "title", "avatar").First(&u, c.UserID).Error; err == nil {
 			c.Username = u.Username
 			c.Title = u.Title
+			c.Avatar = u.Avatar
 		}
 		if c.ParentID == nil {
 			roots = append(roots, c)

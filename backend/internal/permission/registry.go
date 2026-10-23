@@ -118,6 +118,13 @@ var Endpoints = []Endpoint{
 	// 用户公开主页
 	ep("GET", "/api/users/:id/public", GroupSocial, "用户公开主页", true),
 	ep("POST", "/api/reactions", GroupSocial, "点赞点踩", false, model.RoleUser, model.RoleAdmin),
+	// 公告
+	ep("GET", "/api/announcements", GroupSystem, "公告列表", true),
+	ep("POST", "/api/announcements/:id/confirm", GroupSystem, "确认公告", false, model.RoleUser, model.RoleAdmin),
+	ep("GET", "/api/admin/announcements", GroupSystem, "公告管理列表", false, model.RoleAdmin),
+	ep("POST", "/api/admin/announcements", GroupSystem, "发布公告", false, model.RoleAdmin),
+	ep("PUT", "/api/admin/announcements/:id", GroupSystem, "修改公告", false, model.RoleAdmin),
+	ep("DELETE", "/api/admin/announcements/:id", GroupSystem, "删除公告", false, model.RoleAdmin),
 
 	// 存储
 	ep("POST", "/api/images", GroupMedia, "上传图片", false, model.RoleUser, model.RoleAdmin),
@@ -247,6 +254,7 @@ var Pages = []Page{
 	{Key: "page:admin.reports", Path: "/admin/reports", Label: "举报审核", Requires: []string{"GET /api/admin/reports"}},
 	{Key: "page:admin.tickets", Path: "/admin/tickets", Label: "工单管理", Requires: []string{"GET /api/admin/tickets"}},
 	{Key: "page:admin.punishments", Path: "/admin/punishments", Label: "处罚管理", Requires: []string{"GET /api/admin/punishments"}},
+	{Key: "page:admin.announcements", Path: "/admin/announcements", Label: "公告管理", Requires: []string{"GET /api/admin/announcements"}},
 	{Key: "page:admin.permissions", Path: "/admin/permissions", Label: "访问权限", Requires: []string{"GET /api/admin/permissions/matrix"}},
 	{Key: "page:admin.configs", Path: "/admin/configs", Label: "系统配置", Requires: []string{"GET /api/admin/configs"}},
 	{Key: "page:admin.logs.access", Path: "/admin/logs/access", Label: "访问日志", Requires: []string{"GET /api/admin/logs/access"}},

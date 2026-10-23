@@ -131,6 +131,7 @@ type Comment struct {
 
 	Children []*Comment `gorm:"-" json:"children,omitempty"`
 	Username string     `gorm:"-" json:"username,omitempty"`
+	Avatar   string     `gorm:"-" json:"avatar,omitempty"`
 	Title    string     `gorm:"-" json:"title,omitempty"` // 作者称号（展示用）
 }
 

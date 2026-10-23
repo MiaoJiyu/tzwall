@@ -71,6 +71,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	ticketH := NewTicketHandler(ticketSvc)
 	userH := NewUserHandler(userSvc)
 	chatH := NewChatHandler(chatSvc)
+	annH := NewAnnouncementHandler(service.NewAnnouncement(d.DB))
 	interH := NewInteractionHandler(interSvc)
 	imgH := NewImageHandler(d.DB, d.Storage, d.Cfg, d.Cache, d.Store, d.Moderation)
 	initImageLinks(d.Cfg.JWTSecret, d.Store) // 图片访客令牌签名密钥（盲水印写入用户名用）
@@ -173,6 +174,15 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/conversations/:id/messages", perm.Require("GET /api/conversations/:id/messages"), chatH.Messages)
 	r.POST("/api/conversations/:id/messages", perm.Require("POST /api/conversations/:id/messages"), chatH.Send)
 	r.POST("/api/conversations/:id/read", perm.Require("POST /api/conversations/:id/read"), chatH.Read)
+
+	// 公告（公开列表 + 确认）
+	r.GET("/api/announcements", perm.Public("GET /api/announcements"), annH.List)
+	r.POST("/api/announcements/:id/confirm", perm.Require("POST /api/announcements/:id/confirm"), annH.Confirm)
+	// 公告管理（管理员）
+	r.GET("/api/admin/announcements", perm.Require("GET /api/admin/announcements"), annH.AdminList)
+	r.POST("/api/admin/announcements", perm.Require("POST /api/admin/announcements"), annH.Create)
+	r.PUT("/api/admin/announcements/:id", perm.Require("PUT /api/admin/announcements/:id"), annH.Update)
+	r.DELETE("/api/admin/announcements/:id", perm.Require("DELETE /api/admin/announcements/:id"), annH.Delete)
 
 	// 图片（私有上传 / 公开代理）
 	r.POST("/api/images", perm.Require("POST /api/images"), imgH.Upload)

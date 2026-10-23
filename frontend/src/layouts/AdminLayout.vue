@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity, ScanLine, Ticket } from 'lucide-vue-next'
+import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity, ScanLine, Ticket, Megaphone } from 'lucide-vue-next'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const auth = useAuthStore()
@@ -30,6 +30,7 @@ function logout() {
         <router-link to="/admin/polls" class="admin-link"><BarChart3 :size="18" /> 投票管理</router-link>
         <router-link to="/admin/reports" class="admin-link"><Flag :size="18" /> 举报审核</router-link>
         <router-link to="/admin/tickets" class="admin-link"><Ticket :size="18" /> 工单管理</router-link>
+        <router-link to="/admin/announcements" class="admin-link"><Megaphone :size="18" /> 公告管理</router-link>
         <router-link to="/admin/punishments" class="admin-link"><Gavel :size="18" /> 处罚管理</router-link>
         <router-link v-if="auth.user?.role === 'super_admin'" to="/admin/permissions" class="admin-link">
           <ShieldCheck :size="18" /> 访问权限

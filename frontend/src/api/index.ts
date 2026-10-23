@@ -60,6 +60,15 @@ export const ticketApi = {
   setStatus: (id: number, p: any) => http.post('/admin/tickets/' + id + '/status', p),
 }
 
+export const announcementApi = {
+  list: () => http.get('/announcements'),
+  confirm: (id: number) => http.post('/announcements/' + id + '/confirm'),
+  adminList: () => http.get('/admin/announcements'),
+  create: (p: any) => http.post('/admin/announcements', p),
+  update: (id: number, p: any) => http.put('/admin/announcements/' + id, p),
+  remove: (id: number) => http.delete('/admin/announcements/' + id),
+}
+
 export const userApi = {
   public: (id: number) => http.get('/users/' + id + '/public'),
 }

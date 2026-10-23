@@ -11,8 +11,11 @@ const auth = useAuthStore()
 <template>
   <div class="comment">
     <div class="flex gap-2">
-      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-grape-100 text-sm font-semibold text-[var(--grape)]">
-        {{ node.deleted ? '—' : (node.username || '匿')?.[0] || '匿' }}
+      <div class="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-grape-100">
+        <img v-if="node.avatar && !node.deleted" :src="node.avatar" class="h-full w-full object-cover" alt="" />
+        <div v-else class="flex h-full w-full items-center justify-center text-sm font-semibold text-[var(--grape)]">
+          {{ node.deleted ? '—' : (node.username || '匿')?.[0] || '匿' }}
+        </div>
       </div>
       <div class="flex-1">
         <div class="flex items-center gap-1.5 text-sm font-medium text-[var(--text)]">

@@ -159,6 +159,10 @@ onMounted(() => {
 
     <article class="paper-card p-6 animate-fadeup">
       <div class="flex flex-wrap items-center gap-2 text-xs text-[var(--text-soft)]">
+        <span v-if="!detail.anonymous" class="h-6 w-6 shrink-0 overflow-hidden rounded-full bg-grape-100">
+          <img v-if="detail.author_avatar" :src="detail.author_avatar" class="h-full w-full object-cover" alt="" />
+          <span v-else class="flex h-full w-full items-center justify-center font-semibold text-[var(--grape)]">{{ detail.author?.[0] || '匿' }}</span>
+        </span>
         <button v-if="!detail.anonymous" class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)] hover:underline" @click="router.push('/user/' + detail.user_id)">{{ detail.author }}</button>
         <span v-else class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">匿名用户</span>
         <TitleBadge v-if="!detail.anonymous" :title="detail.author_title" />
