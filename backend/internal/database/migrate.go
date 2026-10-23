@@ -44,6 +44,7 @@ func Migrate(db *gorm.DB, log *slog.Logger) error {
 		&model.Message{},
 		&model.Announcement{},
 		&model.AnnouncementConfirm{},
+		&model.SubmissionPoll{},
 	); err != nil {
 		return err
 	}

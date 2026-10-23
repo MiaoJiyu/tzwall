@@ -50,6 +50,9 @@ func (h *MetaHandler) Site(c *gin.Context) {
 			"bind_qrcode":  h.store.Get("miniprogram_bind_qrcode"),
 			"bind_desc":    h.store.Get("miniprogram_bind_desc"),
 		},
+		"limits": gin.H{
+			"poll_per_submission": h.store.Int("poll_max_per_submission", 3),
+		},
 		"footer_icp":         h.store.Get("footer_icp"),
 		"footer_psba":        h.store.Get("footer_psba"),
 		"footer_custom":      h.store.Get("footer_custom"),

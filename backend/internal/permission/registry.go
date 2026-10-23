@@ -232,6 +232,9 @@ var Endpoints = []Endpoint{
 	// 投票
 	ep("GET", "/api/polls", GroupContent, "投票列表", true),
 	ep("GET", "/api/polls/:id", GroupContent, "投票详情", true),
+	ep("GET", "/api/polls/mine", GroupContent, "我的投票", false, model.RoleUser),
+	ep("GET", "/api/submissions/:id/polls", GroupContent, "投稿关联投票", true),
+	ep("POST", "/api/submissions/:id/polls", GroupContent, "设置投稿关联投票", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/polls", GroupContent, "发起投票", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/polls/:id/vote", GroupContent, "参与投票", false, model.RoleUser, model.RoleAdmin),
 	ep("DELETE", "/api/polls/:id", GroupContent, "删除自己的投票", false, model.RoleUser, model.RoleAdmin),

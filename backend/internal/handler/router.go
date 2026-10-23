@@ -144,6 +144,9 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/songs", perm.Public("GET /api/songs"), songH.List)
 	r.GET("/api/polls", perm.Public("GET /api/polls"), pollH.List)
 	r.GET("/api/polls/:id", perm.Public("GET /api/polls/:id"), pollH.Detail)
+	r.GET("/api/polls/mine", perm.Require("GET /api/polls/mine"), pollH.MyPolls)
+	r.GET("/api/submissions/:id/polls", perm.Public("GET /api/submissions/:id/polls"), pollH.SubmissionPolls)
+	r.POST("/api/submissions/:id/polls", perm.Require("POST /api/submissions/:id/polls"), pollH.SetSubmissionPolls)
 	// 用户公开主页（公开）
 	r.GET("/api/users/:id/public", perm.Public("GET /api/users/:id/public"), userH.Public)
 

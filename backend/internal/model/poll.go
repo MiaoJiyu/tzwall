@@ -38,3 +38,11 @@ type PollVote struct {
 	UserID    uint      `gorm:"uniqueIndex:idx_poll_vote" json:"user_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// SubmissionPoll 投稿与投票的关联（一个投票最多关联一个投稿，防止重复关联）。
+type SubmissionPoll struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	SubmissionID uint      `gorm:"index:idx_subpoll_sub" json:"submission_id"`
+	PollID       uint      `gorm:"uniqueIndex:idx_subpoll_poll" json:"poll_id"`
+	CreatedAt    time.Time `json:"created_at"`
+}

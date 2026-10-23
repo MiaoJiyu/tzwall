@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Heart, ThumbsDown, Share2, MessageCircle, MessageSquare, Send, Flag, Ban, Gavel, Pencil, Undo2 } from 'lucide-vue-next'
+import { Heart, ThumbsDown, Share2, MessageCircle, MessageSquare, Send, Flag, Ban, Gavel, Pencil, Undo2, BarChart3, Check } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { submissionApi, commentApi, interactionApi, punishmentApi, adminApi, chatApi } from '@/api'
+import { submissionApi, commentApi, interactionApi, punishmentApi, adminApi, chatApi, pollApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import CommentTree from '@/components/CommentTree.vue'
 import TitleBadge from '@/components/TitleBadge.vue'
 import ContentMarkdown from '@/components/ContentMarkdown.vue'
+import PollCard from '@/components/PollCard.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
 import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
@@ -150,6 +151,7 @@ onMounted(() => {
   load()
   loadComments()
   loadStatus()
+  loadPolls()
 })
 </script>
 
@@ -188,6 +190,54 @@ onMounted(() => {
       <div v-if="detail.tags?.length" class="mt-4 flex flex-wrap gap-1.5">
         <span v-for="t in detail.tags" :key="t.id" class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">#{{ t.name }}</span>
       </div>
+
+      <!-- 关联投票 -->
+      <div v-if="linkedPolls.length" class="mt-6">
+        <div class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[var(--grape)]"><BarChart3 :size="16" /> 关联投票</div>
+        <div class="space-y-2">
+          <PollCard v-for="p in linkedPolls" :key="p.id + '-' + ((p.my_option_ids || []).join(','))" :poll="p" @voted="loadPolls" />
+        </div>
+      </div>
+      <div v-if="canManagePolls()" class="mt-3">
+        <button class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-4 py-1.5 text-sm hover:text-[var(--grape)]" @click="openPollPicker">
+          <BarChart3 :size="14" /> 关联投票（最多 {{ pollMax }} 个）
+        </button>
+      </div>
+
+      <!-- 关联投票选择 -->
+      <el-dialog v-model="pollDialog" title="关联投票" width="460px">
+        <p class="mb-2 text-xs text-[var(--text-soft)]">
+          最多可关联 <b>{{ pollMax }}</b> 个，当前已选 <b>{{ pollSel.length }}</b> 个。只能关联自己发起、未截止且未被其他投稿占用的投票。
+        </p>
+        <div v-if="!myPolls.length" class="py-6 text-center text-sm text-[var(--text-soft)]">你还没有发起过投票，可前往「投票」页发起。</div>
+        <div v-else class="max-h-[50vh] space-y-2 overflow-y-auto">
+          <button
+            v-for="p in myPolls"
+            :key="p.id"
+            @click="togglePoll(p)"
+            :disabled="!pollLinkable(p)"
+            class="flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition"
+            :class="[pollSel.includes(p.id) ? 'border-[var(--grape)] bg-grape-50' : 'border-[var(--border)]', !pollLinkable(p) ? 'cursor-not-allowed opacity-50' : 'hover:border-[var(--grape)]/50']"
+          >
+            <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-white" :class="pollSel.includes(p.id) ? 'border-[var(--grape)] bg-[var(--grape)]' : 'border-[var(--border)]'">
+              <Check v-if="pollSel.includes(p.id)" :size="10" />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-medium">{{ p.title }}</span>
+              <span class="text-xs text-[var(--text-soft)]">
+                {{ p.expired ? '已截止' : (p.total_votes + ' 票') }}
+                <template v-if="p.linked_submission_id && p.linked_submission_id !== id"> · 已关联其他投稿</template>
+              </span>
+            </span>
+          </button>
+        </div>
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <button class="rounded-full px-4 py-1.5 text-sm" @click="pollDialog = false">取消</button>
+            <button class="btn-grape rounded-full px-4 py-1.5 text-sm text-white" @click="savePolls">保存</button>
+          </div>
+        </template>
+      </el-dialog>
 
       <div v-if="detail.under_review && detail.pending_content" class="mt-4 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm">
         <p class="mb-1 text-xs font-medium text-warn">您的新版本正在审核（通过后展示，当前上方为原版）：</p>

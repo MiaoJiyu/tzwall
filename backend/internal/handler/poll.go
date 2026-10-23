@@ -183,3 +183,58 @@ func (h *PollHandler) AdminDelete(c *gin.Context) {
 	}
 	response.OK(c, nil)
 }
+
+// SubmissionPolls 获取某投稿关联的投票（公开）。
+func (h *PollHandler) SubmissionPolls(c *gin.Context) {
+	uid := uint(0)
+	if u := middleware.CurrentUser(c); u != nil {
+		uid = u.ID
+	}
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	items, err := h.svc.SubmissionPolls(uint(id), uid)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"items": items, "max": h.svc.MaxPollsPerSubmission()})
+}
+
+// SetSubmissionPolls 设置投稿关联的投票（作者或管理员）。
+func (h *PollHandler) SetSubmissionPolls(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	if u == nil {
+		response.FailCode(c, errs.CodeUnauthorized, "")
+		return
+	}
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req struct {
+		PollIDs []uint `json:"poll_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	if err := h.svc.SetSubmissionPolls(u, uint(id), req.PollIDs); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
+// MyPolls 我的投票（供关联选择）。
+func (h *PollHandler) MyPolls(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	if u == nil {
+		response.FailCode(c, errs.CodeUnauthorized, "")
+		return
+	}
+	items, err := h.svc.ListMine(u.ID, 100)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"items": items})
+}

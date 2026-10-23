@@ -164,6 +164,9 @@ export const pollApi = {
   create: (p: any) => http.post('/polls', p),
   vote: (id: number, p: any) => http.post('/polls/' + id + '/vote', p),
   remove: (id: number) => http.delete('/polls/' + id),
+  mine: () => http.get('/polls/mine'),
+  submissionPolls: (id: number) => http.get('/submissions/' + id + '/polls'),
+  setSubmissionPolls: (id: number, pollIds: number[]) => http.post('/submissions/' + id + '/polls', { poll_ids: pollIds }),
 }
 
 export const permissionApi = {

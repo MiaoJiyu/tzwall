@@ -82,6 +82,7 @@ var ConfigItems = []ConfigItem{
 	{Key: "song_weekly_limit", Group: GroupPost, Label: "每人每周点歌上限", Type: TypeInt, Default: "1", Min: 0, Max: 100, Desc: "按自然周统计；0 表示不限"},
 	{Key: "poll_enabled", Group: GroupPost, Label: "启用投票", Type: TypeBool, Default: "true", Desc: "关闭后禁止发起投票与投票"},
 	{Key: "poll_max_options", Group: GroupPost, Label: "投票选项上限", Type: TypeInt, Default: "10", Min: 2, Max: 50},
+	{Key: "poll_max_per_submission", Group: GroupPost, Label: "单篇投稿可关联投票上限", Type: TypeInt, Default: "3", Min: 0, Max: 10, Desc: "0 表示不允许关联；保存后即时生效（超限的既有稿件可保留已有关联，不再新增）"},
 
 	// 图片
 	{Key: "image_max_size_mb", Group: GroupMedia, Label: "单张图片大小（MB）", Type: TypeInt, Default: "5", Min: 1, Max: 50},

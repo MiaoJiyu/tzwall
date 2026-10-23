@@ -171,9 +171,11 @@ async function submit() {
       await submissionApi.update(editingId.value, payload)
       ElMessage.success('已保存修改，将重新进入审核')
     } else {
-      await submissionApi.create(payload)
+      const created: any = await submissionApi.create(payload)
       clearDraft()
-      ElMessage.success('投稿已提交，等待审核')
+      ElMessage.success('投稿已提交，可在详情页为该投稿关联投票')
+      router.push(created?.id ? '/submission/' + created.id : '/my')
+      return
     }
     router.push('/my')
   } catch (e: any) {
