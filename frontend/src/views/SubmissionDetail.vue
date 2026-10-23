@@ -31,6 +31,70 @@ function openReport(type: string, targetId: number) {
   showReport.value = true
 }
 
+// 关联投票
+const linkedPolls = ref<any[]>([])
+const pollDialog = ref(false)
+const myPolls = ref<any[]>([])
+const pollSel = ref<number[]>([])
+const pollMax = ref(3)
+function canManagePolls() {
+  const u = auth.user
+  const isAdmin = auth.isAdmin || u?.role === 'admin' || u?.role === 'super_admin'
+  return auth.isLoggedIn && (isAdmin || (detail.value && detail.value.user_id === u?.id))
+}
+async function loadPolls() {
+  try {
+    const r: any = await pollApi.submissionPolls(id)
+    linkedPolls.value = r.items || []
+    pollMax.value = r.max ?? 3
+  } catch {
+    linkedPolls.value = []
+  }
+}
+async function openPollPicker() {
+  try {
+    const r: any = await pollApi.mine()
+    myPolls.value = r.items || []
+  } catch {
+    myPolls.value = []
+  }
+  pollSel.value = linkedPolls.value.map((p: any) => p.id)
+  pollDialog.value = true
+}
+function pollLinkable(p: any) {
+  return !p.expired && (!p.linked_submission_id || p.linked_submission_id === id)
+}
+function togglePoll(p: any) {
+  if (!pollLinkable(p)) {
+    ElMessage.warning('该投票已截止或已关联其他投稿')
+    return
+  }
+  const i = pollSel.value.indexOf(p.id)
+  if (i >= 0) {
+    pollSel.value.splice(i, 1)
+  } else {
+    if (pollSel.value.length >= pollMax.value) {
+      ElMessage.warning(`最多关联 ${pollMax.value} 个投票`)
+      return
+    }
+    pollSel.value.push(p.id)
+  }
+}
+async function savePolls() {
+  if (pollSel.value.length > pollMax.value) {
+    ElMessage.warning(`最多关联 ${pollMax.value} 个投票`)
+    return
+  }
+  try {
+    await pollApi.setSubmissionPolls(id, pollSel.value)
+    ElMessage.success('关联投票已保存')
+    pollDialog.value = false
+    await loadPolls()
+  } catch {
+    /* 错误已由拦截器提示 */
+  }
+}
+
 // 作者操作：修改（进入编辑页）/ 撤回（依据后端 can_edit/can_withdraw）
 function editSubmission() {
   router.push('/publish?edit=' + id)
