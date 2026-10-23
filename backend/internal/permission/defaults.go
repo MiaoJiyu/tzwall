@@ -29,6 +29,10 @@ func EnsureDefaults(db *gorm.DB) error {
 					Role:        sp.role,
 					EndpointKey: e.Key,
 					Allow:       sp.allow,
+					Rps:         e.Rps,
+					Rpm:         e.Rpm,
+					RpHour:      e.RpHour,
+					RpDay:       e.RpDay,
 				}).Error; err != nil {
 					return err
 				}

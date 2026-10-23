@@ -30,6 +30,11 @@ type Endpoint struct {
 	Label        string
 	Public       bool
 	DefaultRoles []model.Role
+	// 速率默认值（0 表示不限），由权限矩阵统一管理/可后台调整
+	Rps    int
+	Rpm    int
+	RpHour int
+	RpDay  int
 }
 
 // Page 前端页面清单项，由后端维护并下发前端守卫使用。
@@ -53,6 +58,14 @@ func ep(method, path, group, label string, public bool, roles ...model.Role) End
 	}
 }
 
+// epR 登记带速率默认值的端点（迁移自原业务路由里硬编码的 rate.Limit）。
+// 速率由权限矩阵统一管理，后台「访问权限」可逐端点调整。
+func epR(method, path, group, label string, public bool, rps, rpm, rphour, rpday int, roles ...model.Role) Endpoint {
+	e := ep(method, path, group, label, public, roles...)
+	e.Rps, e.Rpm, e.RpHour, e.RpDay = rps, rpm, rphour, rpday
+	return e
+}
+
 // Endpoints 全量端点目录。新增接口必须在此登记。
 var Endpoints = []Endpoint{
 	// 系统与元信息
@@ -63,13 +76,13 @@ var Endpoints = []Endpoint{
 	ep("GET", "/api/meta/routes", GroupSystem, "页面权限清单", true),
 
 	// 账号
-	ep("POST", "/api/auth/register", GroupAuth, "注册", true),
-	ep("POST", "/api/auth/login", GroupAuth, "登录", true),
+	epR("POST", "/api/auth/register", GroupAuth, "注册", true, 0, 0, 20, 0),
+	epR("POST", "/api/auth/login", GroupAuth, "登录", true, 0, 0, 30, 0),
 	ep("GET", "/api/auth/verify-email", GroupAuth, "邮箱激活", true),
 	ep("POST", "/api/auth/resend-verify", GroupAuth, "重发激活邮件", true),
 	ep("POST", "/api/auth/forgot", GroupAuth, "找回密码", true),
 	ep("POST", "/api/auth/reset", GroupAuth, "重置密码", true),
-	ep("POST", "/api/auth/wechat/login", GroupAuth, "微信小程序登录", true),
+	epR("POST", "/api/auth/wechat/login", GroupAuth, "微信小程序登录", true, 0, 0, 600, 0),
 	ep("GET", "/api/auth/qq/url", GroupAuth, "QQ 授权地址", true),
 	ep("GET", "/api/auth/qq/callback", GroupAuth, "QQ 登录回调", true),
 	ep("POST", "/api/auth/social/exchange", GroupAuth, "社交登录兑换", true),
@@ -79,7 +92,7 @@ var Endpoints = []Endpoint{
 	ep("GET", "/api/auth/wechat/web/url", GroupAuth, "微信网页登录授权", true),
 	ep("GET", "/api/auth/wechat/web/bind/url", GroupAuth, "发起微信网页绑定", false, model.RoleUser),
 	ep("GET", "/api/auth/wechat/web/callback", GroupAuth, "微信网页授权回调", true),
-	ep("POST", "/api/auth/wechat/register", GroupAuth, "微信小程序注册完成", true),
+	epR("POST", "/api/auth/wechat/register", GroupAuth, "微信小程序注册完成", true, 0, 0, 20, 0),
 	ep("POST", "/api/auth/wechat/bind-code", GroupAuth, "生成微信绑定码", false, model.RoleUser),
 	ep("POST", "/api/auth/wechat/bind-code/confirm", GroupAuth, "微信绑定码确认", true),
 	ep("POST", "/api/auth/me", GroupAuth, "当前用户", false, model.RoleUser, model.RoleAdmin),
@@ -135,9 +148,9 @@ var Endpoints = []Endpoint{
 
 	// 存储
 	ep("POST", "/api/images", GroupMedia, "上传图片", false, model.RoleUser, model.RoleAdmin),
-	ep("GET", "/api/images/:id", GroupMedia, "图片代理", true),
+	epR("GET", "/api/images/:id", GroupMedia, "图片代理", true, 0, 120, 0, 0),
 	ep("POST", "/api/videos", GroupMedia, "上传视频", false, model.RoleUser, model.RoleAdmin),
-	ep("GET", "/api/videos/:id", GroupMedia, "视频代理", true),
+	epR("GET", "/api/videos/:id", GroupMedia, "视频代理", true, 0, 600, 0, 0),
 
 	// 治理：处罚
 	ep("GET", "/api/punishments/status", GroupGovernance, "处罚状态", false, model.RoleUser, model.RoleAdmin),

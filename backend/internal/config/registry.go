@@ -50,8 +50,8 @@ var ConfigItems = []ConfigItem{
 	{Key: "agreement_required", Group: GroupSite, Label: "强制确认协议", Type: TypeBool, Default: "true", Desc: "协议更新后强制已登录用户重新确认"},
 
 	// 注册与登录
-	{Key: "register_rph", Group: GroupAccount, Label: "每小时注册上限", Type: TypeInt, Default: "20", Min: 0, Max: 10000, Desc: "0 表示不限"},
-	{Key: "login_rph", Group: GroupAccount, Label: "每小时登录上限", Type: TypeInt, Default: "30", Min: 0, Max: 10000, Desc: "按 IP 统计，0 表示不限"},
+	{Key: "register_rph", Group: GroupAccount, Label: "每小时注册上限（已迁移）", Type: TypeInt, Default: "20", Min: 0, Max: 10000, Desc: "已迁移至「访问权限」矩阵按端点配置，此处不再生效"},
+	{Key: "login_rph", Group: GroupAccount, Label: "每小时登录上限（已迁移）", Type: TypeInt, Default: "30", Min: 0, Max: 10000, Desc: "已迁移至「访问权限」矩阵按端点配置，此处不再生效"},
 	{Key: "login_fail_user_limit", Group: GroupAccount, Label: "用户登录失败次数", Type: TypeInt, Default: "5", Min: 1, Max: 100},
 	{Key: "login_fail_admin_limit", Group: GroupAccount, Label: "管理员登录失败次数", Type: TypeInt, Default: "10", Min: 1, Max: 100},
 	{Key: "login_lock_minutes", Group: GroupAccount, Label: "锁定时长（分钟）", Type: TypeInt, Default: "15", Min: 1, Max: 1440},

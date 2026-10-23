@@ -34,7 +34,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.Use(gin.Recovery())
 	r.Use(middleware.RealIP(d.Cfg))
 
-	rate := middleware.NewRateLimiter(d.Cache, d.Store)
+
 	resolver := permission.NewResolver(d.DB)
 	perm := middleware.NewPermission(resolver, d.Cache)
 
@@ -104,16 +104,16 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/moderation/callback", perm.Public("POST /api/moderation/callback"), modH.Callback)
 
 	// 鉴权（公开）
-	r.POST("/api/auth/register", perm.Public("POST /api/auth/register"), rate.Limit("register", "register_rph", 20), authH.Register)
-	r.POST("/api/auth/login", perm.Public("POST /api/auth/login"), rate.Limit("login", "login_rph", 30), authH.Login)
+	r.POST("/api/auth/register", perm.Public("POST /api/auth/register"), authH.Register)
+	r.POST("/api/auth/login", perm.Public("POST /api/auth/login"), authH.Login)
 	r.GET("/api/auth/verify-email", perm.Public("GET /api/auth/verify-email"), authH.VerifyEmail)
 	r.POST("/api/auth/resend-verify", perm.Public("POST /api/auth/resend-verify"), authH.ResendVerify)
 	r.POST("/api/auth/forgot", perm.Public("POST /api/auth/forgot"), authH.Forgot)
 	r.POST("/api/auth/reset", perm.Public("POST /api/auth/reset"), authH.Reset)
 
 	// 第三方登录（微信小程序 / QQ OAuth）
-	r.POST("/api/auth/wechat/login", perm.Public("POST /api/auth/wechat/login"), rate.Limit("wechat_login", "login_rph", 30), authH.WechatLogin)
-	r.POST("/api/auth/wechat/register", perm.Public("POST /api/auth/wechat/register"), rate.Limit("wechat_register", "register_rph", 20), authH.WechatRegister)
+	r.POST("/api/auth/wechat/login", perm.Public("POST /api/auth/wechat/login"), authH.WechatLogin)
+	r.POST("/api/auth/wechat/register", perm.Public("POST /api/auth/wechat/register"), authH.WechatRegister)
 	r.POST("/api/auth/wechat/bind-code", perm.Require("POST /api/auth/wechat/bind-code"), authH.WechatBindCode)
 	r.POST("/api/auth/wechat/bind-code/confirm", perm.Public("POST /api/auth/wechat/bind-code/confirm"), authH.WechatBindByCode)
 	r.GET("/api/auth/qq/url", perm.Public("GET /api/auth/qq/url"), authH.QQAuthorize)
@@ -193,11 +193,11 @@ func SetupRouter(d Deps) *gin.Engine {
 
 	// 图片（私有上传 / 公开代理）
 	r.POST("/api/images", perm.Require("POST /api/images"), imgH.Upload)
-	r.GET("/api/images/:id", perm.Public("GET /api/images/:id"), rate.Limit("img", "image_proxy_rpm", 120), imgH.Proxy)
+	r.GET("/api/images/:id", perm.Public("GET /api/images/:id"), imgH.Proxy)
 
 	// 视频（私有上传 / 公开代理，支持 Range）
 	r.POST("/api/videos", perm.Require("POST /api/videos"), vidH.Upload)
-	r.GET("/api/videos/:id", perm.Public("GET /api/videos/:id"), rate.Limit("video", "video_proxy_rpm", 600), vidH.Proxy)
+	r.GET("/api/videos/:id", perm.Public("GET /api/videos/:id"), vidH.Proxy)
 
 	// 后台（私有，角色在 handler 内校验）
 	r.GET("/api/admin/dashboard", perm.Require("GET /api/admin/dashboard"), adminH.Dashboard)
