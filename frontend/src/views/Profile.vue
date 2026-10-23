@@ -117,11 +117,18 @@ async function bindQQ() {
 }
 const mp = computed(() => meta.site?.miniprogram || {})
 const mpBindDialog = ref(false)
+const bindCode = ref('')
 async function bindWechat() {
   const canMp = !!meta.site?.features?.social?.wechat
   const canWeb = !!meta.site?.features?.social?.wechat_web
   if (canMp) {
-    // 绑定场景：弹「绑定小程序码」（与登录码独立，绝不混用）
+    // 绑定场景：弹「绑定小程序码」+ 授权码（与登录场景独立，绝不混用）
+    try {
+      const r: any = await authApi.wechatBindCode()
+      bindCode.value = r?.code || ''
+    } catch {
+      bindCode.value = ''
+    }
     mpBindDialog.value = true
     return
   }
@@ -136,6 +143,15 @@ async function bindWechat() {
     return
   }
   ElMessage.warning('微信登录/绑定暂未开放')
+}
+async function checkBindStatus() {
+  await refreshUser()
+  if (auth.user?.wechat_bound) {
+    ElMessage.success('微信绑定成功')
+    mpBindDialog.value = false
+  } else {
+    ElMessage.info('尚未检测到绑定，请在小程序内输入授权码完成绑定后再点「刷新」')
+  }
 }
 async function unbind(provider: 'wechat' | 'qq') {
   const name = provider === 'wechat' ? '微信' : 'QQ'
@@ -229,8 +245,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 绑定场景小程序码（与登录码独立） -->
-      <MiniProgramQrDialog v-model="mpBindDialog" title="绑定微信" :name="mp.name" :qrcode="mp.bind_qrcode" :desc="mp.bind_desc" />
+      <!-- 绑定场景小程序码 + 授权码（与登录码独立） -->
+      <MiniProgramQrDialog v-model="mpBindDialog" title="绑定微信" :name="mp.name" :qrcode="mp.bind_qrcode" :desc="mp.bind_desc" :code="bindCode" :show-refresh="true" @refresh="checkBindStatus" />
 
       <div class="paper-card p-6">
         <h2 class="mb-1 font-semibold">公开个人主页</h2>
