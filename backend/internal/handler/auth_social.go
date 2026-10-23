@@ -318,10 +318,12 @@ func (h *AuthHandler) UnbindProvider(c *gin.Context) {
 		response.FailCode(c, errs.ErrValidation, "")
 		return
 	}
-	if err := h.svc.UnbindProvider(u.ID, req.Provider); err != nil {
+	tok, err := h.svc.UnbindProvider(u.ID, req.Provider)
+	if err != nil {
 		code, _ := errs.As(err)
 		response.FailCode(c, code, err.Error())
 		return
 	}
-	response.OK(c, nil)
+	// 返回新 token：当前网页端保持登录；其他端（如小程序）旧 token 已失效
+	response.OK(c, gin.H{"token": tok})
 }

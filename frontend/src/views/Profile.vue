@@ -159,7 +159,9 @@ async function unbind(provider: 'wechat' | 'qq') {
     return
   }
   try {
-    await authApi.unbindProvider({ provider })
+    const r: any = await authApi.unbindProvider({ provider })
+    // 解绑使旧 token 失效；用返回的新 token 保持当前网页登录
+    if (r?.token) auth.set(r.token, auth.user)
     await refreshUser()
     ElMessage.success(`已解绑${name}`)
   } catch (e: any) {

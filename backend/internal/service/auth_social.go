@@ -690,10 +690,10 @@ func (s *AuthService) BindByCode(bindCode, wxCode string) error {
 }
 
 // UnbindProvider 解绑第三方身份；若解绑后将无任何登录方式则拒绝（需先设密码或保留其他方式）。
-func (s *AuthService) UnbindProvider(userID uint, provider string) error {
+func (s *AuthService) UnbindProvider(userID uint, provider string) (string, error) {
 	u, err := s.userByID(userID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	hasPwd := u.PasswordHash != ""
 	remaining := 0
@@ -707,9 +707,11 @@ func (s *AuthService) UnbindProvider(userID uint, provider string) error {
 		remaining++
 	}
 	if remaining == 0 {
-		return errs.New(errs.ErrValidation, fmt.Errorf("请先设置密码或保留至少一种登录方式"))
+		return "", errs.New(errs.ErrValidation, fmt.Errorf("请先设置密码或保留至少一种登录方式"))
 	}
-	updates := map[string]any{}
+	// 解绑登录方式后使既有会话全部失效（该微信/QQ 可能已在其他端登录）；
+	// 同时为当前客户端重新签发 token，避免网页端被一并踢下线。
+	updates := map[string]any{"token_version": gorm.Expr("token_version + 1")}
 	switch provider {
 	case "wechat":
 		updates["wx_openid"] = ""
@@ -718,9 +720,20 @@ func (s *AuthService) UnbindProvider(userID uint, provider string) error {
 		updates["qq_openid"] = ""
 		updates["qq_unionid"] = ""
 	default:
-		return errs.New(errs.ErrValidation, nil)
+		return "", errs.New(errs.ErrValidation, nil)
 	}
-	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
+	if err := s.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+		return "", errs.New(errs.CodeInternal, err)
+	}
+	u2, err := s.userByID(userID)
+	if err != nil {
+		return "", err
+	}
+	tok, err := s.IssueToken(u2)
+	if err != nil {
+		return "", errs.New(errs.CodeInternal, err)
+	}
+	return tok, nil
 }
 
 // ───────────────────────── 会话（JWT / 一次性 code） ─────────────────────────
