@@ -234,7 +234,7 @@ onMounted(load)
           <div>
             <h3 class="font-serif-sc text-xl font-bold">{{ viewItem.title || '(无标题)' }}</h3>
             <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-soft)]">
-              <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[var(--grape)]">{{ viewItem.anonymous ? '匿名用户' : viewItem.author }}</span>
+              <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[var(--grape)]">{{ viewItem.author }}</span>
               <span>{{ viewItem.created_at }}</span>
               <span class="rounded-full px-2 py-0.5 text-white" :class="(statusMap[viewItem.status] || { cls: 'bg-[var(--text-soft)]' }).cls">{{ (statusMap[viewItem.status] || { text: viewItem.status }).text }}</span>
             </div>

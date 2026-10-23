@@ -190,7 +190,7 @@ onMounted(load)
           <div>
             <h3 class="font-serif-sc text-lg font-bold">{{ preview.submission?.title || '(无标题)' }}</h3>
             <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-soft)]">
-              <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[var(--grape)]">{{ preview.submission?.anonymous ? '匿名用户' : preview.submission?.author }}</span>
+              <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[var(--grape)]">{{ preview.submission?.author }}</span>
               <span>{{ preview.submission?.created_at }}</span>
               <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5">状态：{{ preview.submission?.status }}</span>
               <span v-if="preview.target_type === 'comment'" class="rounded-full bg-warn/15 px-2 py-0.5 text-warn">被举报为评论 #{{ current?.target_id }}</span>

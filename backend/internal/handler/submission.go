@@ -36,6 +36,9 @@ func submissionView(sub *model.Submission, viewer *model.User, myAttitude int) g
 		} else if sub.ContactVisible == model.ContactLogin && viewer != nil {
 			showContact = true
 		}
+	} else if viewer != nil && viewer.IsAdmin() && sub.User != nil {
+		// 管理员查看匿名帖：不再完全隐藏显示名，显示「【隐藏】原名称」；普通用户视角仍为“匿名用户”
+		author = "【隐藏】" + sub.User.DisplayName()
 	}
 	if viewer != nil && viewer.IsAdmin() {
 		showContact = true // 管理员始终可见完整联系方式

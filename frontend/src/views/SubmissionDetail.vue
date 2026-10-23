@@ -164,7 +164,7 @@ onMounted(() => {
           <span v-else class="flex h-full w-full items-center justify-center font-semibold text-[var(--grape)]">{{ detail.author?.[0] || '匿' }}</span>
         </span>
         <button v-if="!detail.anonymous" class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)] hover:underline" @click="router.push('/user/' + detail.user_id)">{{ detail.author }}</button>
-        <span v-else class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">匿名用户</span>
+        <span v-else class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ detail.author }}</span>
         <TitleBadge v-if="!detail.anonymous" :title="detail.author_title" />
         <button v-if="!detail.anonymous && auth.isLoggedIn && detail.user_id !== auth.user?.id" class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-2 py-0.5 hover:text-[var(--grape)]" @click="startChat">
           <MessageSquare :size="12" /> 私聊

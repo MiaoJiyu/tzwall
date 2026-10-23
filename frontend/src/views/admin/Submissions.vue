@@ -57,7 +57,7 @@ onMounted(load)
     <div v-if="list.length" class="space-y-4">
       <div v-for="s in list" :key="s.id" class="paper-card p-5">
         <div class="flex items-center gap-2 text-xs text-[var(--text-soft)]">
-          <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[var(--grape)]">{{ s.anonymous ? '匿名用户' : s.author }}</span>
+          <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[var(--grape)]">{{ s.author }}</span>
           <span>{{ s.created_at }}</span>
           <span v-if="s.real_author" class="text-[var(--text-soft)]">（真实：{{ s.real_author }}）</span>
         </div>

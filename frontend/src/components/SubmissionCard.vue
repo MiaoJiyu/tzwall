@@ -61,7 +61,7 @@ async function toggleLike() {
 <template>
   <article class="paper-card cursor-pointer p-5 animate-fadeup" @click="open">
     <div class="flex items-center gap-2 text-xs text-[var(--text-soft)]">
-      <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ item.anonymous ? '匿名用户' : item.author }}</span>
+      <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ item.author }}</span>
       <TitleBadge v-if="!item.anonymous" :title="item.author_title" />
       <span>{{ item.created_at }}</span>
       <span v-if="item.status && item.status !== 'approved'" class="rounded bg-warn/20 px-1.5 py-0.5 text-warn">{{ statusText[item.status] || item.status }}</span>
