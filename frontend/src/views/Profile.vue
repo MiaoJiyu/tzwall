@@ -231,7 +231,7 @@ onMounted(async () => {
               <span v-else class="ml-2 rounded bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--text-soft)]">未绑定</span>
             </div>
             <button v-if="auth.user?.wechat_bound" class="rounded-full border border-[var(--border)] px-4 py-1.5 text-sm hover:text-[var(--danger)]" @click="unbind('wechat')">解绑</button>
-            <button v-else class="btn-grape rounded-full px-4 py-1.5 text-sm" @click="bindWechat">绑定微信</button>
+            <button v-else class="inline-flex items-center gap-1.5 rounded-full bg-[#07C160] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#06AD56]" @click="bindWechat"><img src="/wechat_logo_icon_147207.png" alt="微信" class="h-4 w-4 shrink-0" draggable="false" /> 绑定微信</button>
           </div>
           <div class="flex items-center justify-between">
             <div>
@@ -240,7 +240,7 @@ onMounted(async () => {
               <span v-else class="ml-2 rounded bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--text-soft)]">未绑定</span>
             </div>
             <button v-if="auth.user?.qq_bound" class="rounded-full border border-[var(--border)] px-4 py-1.5 text-sm hover:text-[var(--danger)]" @click="unbind('qq')">解绑</button>
-            <button v-else class="btn-grape rounded-full px-4 py-1.5 text-sm" @click="bindQQ">绑定 QQ</button>
+            <button v-else class="inline-flex items-center gap-1.5 rounded-full bg-[#12B7F5] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#0F9ED8]" @click="bindQQ"><img src="/qq_bt_white_24X24.png" alt="QQ" class="h-4 w-4 shrink-0" draggable="false" /> 绑定 QQ</button>
           </div>
         </div>
       </div>

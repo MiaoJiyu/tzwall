@@ -144,11 +144,13 @@ async function wechatWeb() {
             </div>
             <div class="mt-3 flex gap-3">
               <button v-if="social.qq" @click="qqLogin"
-                class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">
+                class="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#12B7F5] py-2.5 text-sm font-medium text-white transition hover:bg-[#0F9ED8]">
+                <img src="/qq_bt_white_24X24.png" alt="QQ" class="h-5 w-5 shrink-0" draggable="false" />
                 QQ 登录
               </button>
               <button v-if="social.wechat || social.wechat_web" @click="wechatLogin"
-                class="flex-1 rounded-full border border-[var(--border)] py-2.5 text-sm hover:text-[var(--grape)]">
+                class="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#07C160] py-2.5 text-sm font-medium text-white transition hover:bg-[#06AD56]">
+                <img src="/wechat_logo_icon_147207.png" alt="微信" class="h-5 w-5 shrink-0" draggable="false" />
                 微信登录
               </button>
             </div>
