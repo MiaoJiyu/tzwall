@@ -73,6 +73,7 @@ var ConfigItems = []ConfigItem{
 	{Key: "miniprogram_login_desc", Group: GroupAccount, Label: "登录说明文案", Type: TypeText, Default: "请使用微信扫描小程序码，在小程序内完成登录/注册。", Desc: "登录弹窗中的说明文字"},
 	{Key: "miniprogram_bind_qrcode", Group: GroupAccount, Label: "绑定小程序码图片地址", Type: TypeString, Default: "", Desc: "个人中心点击「绑定微信」时弹窗展示的小程序码图片 URL（与登录码区分）"},
 	{Key: "miniprogram_bind_desc", Group: GroupAccount, Label: "绑定说明文案", Type: TypeText, Default: "请使用微信扫描小程序码，在小程序内完成微信绑定。", Desc: "绑定弹窗中的说明文字"},
+	{Key: "miniprogram_confirm_page", Group: GroupAccount, Label: "小程序登录确认页路径", Type: TypeString, Default: "pages/web-login/web-login", Desc: "网页登录小程序码跳转的小程序页面路径（需与小程序 app.json 一致）"},
 	{Key: "qq_mail_skip_verify", Group: GroupAccount, Label: "如果是QQ邮箱，直接注册，不进行验证", Type: TypeBool, Default: "false", Desc: "开启后，QQ 邮箱（域名恰为 qq.com）注册跳过邮箱验证直接完成，且不弹提示；关闭则按常规验证流程并提示查收"},
 
 	// 发帖与评论

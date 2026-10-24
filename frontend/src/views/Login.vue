@@ -7,6 +7,7 @@ import { authApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMetaStore } from '@/stores/meta'
 import MiniProgramQrDialog from '@/components/MiniProgramQrDialog.vue'
+import WebLoginDialog from '@/components/WebLoginDialog.vue'
 
 const auth = useAuthStore()
 const meta = useMetaStore()
@@ -18,6 +19,11 @@ const loading = ref(false)
 const social = ref({ wechat: false, wechat_web: false, qq: false })
 const mp = computed(() => meta.site?.miniprogram || {})
 const mpLoginDialog = ref(false)
+const webLoginDialog = ref(false)
+function onWebLoginOk() {
+  meta.ensureAgreement()
+  router.push((route.query.redirect as string) || '/')
+}
 
 onMounted(async () => {
   // QQ/微信 授权回跳：用一次性 code 兑换登录态
@@ -89,7 +95,7 @@ function wechatLogin() {
 }
 function wechatMiniapp() {
   wechatChoose.value = false
-  mpLoginDialog.value = true // 登录场景：弹「登录小程序码」
+  webLoginDialog.value = true // 登录场景：弹「网页扫码即登」小程序码（带 scene）
 }
 async function wechatWeb() {
   wechatChoose.value = false
@@ -187,6 +193,9 @@ async function wechatWeb() {
 
   <!-- 登录场景小程序码（与绑定场景独立） -->
   <MiniProgramQrDialog v-model="mpLoginDialog" title="微信登录 / 注册" :name="mp.name" :qrcode="mp.login_qrcode" :desc="mp.login_desc" />
+
+  <!-- 网页扫码即登（方案 B：动态小程序码携带 scene，小程序确认后自动登录） -->
+  <WebLoginDialog v-model="webLoginDialog" :name="mp.name" :desc="mp.login_desc" :fallback-qrcode="mp.login_qrcode" @success="onWebLoginOk" />
 </template>
 
 <style scoped>

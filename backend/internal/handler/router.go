@@ -114,6 +114,11 @@ func SetupRouter(d Deps) *gin.Engine {
 	// 第三方登录（微信小程序 / QQ OAuth）
 	r.POST("/api/auth/wechat/login", perm.Public("POST /api/auth/wechat/login"), authH.WechatLogin)
 	r.POST("/api/auth/wechat/register", perm.Public("POST /api/auth/wechat/register"), authH.WechatRegister)
+	// 网页登录：小程序扫码即登（方案 B）
+	r.POST("/api/auth/web-login/session", perm.Public("POST /api/auth/web-login/session"), authH.WebLoginSession)
+	r.POST("/api/auth/web-login/qrcode", perm.Public("POST /api/auth/web-login/qrcode"), authH.WebLoginQrcode)
+	r.POST("/api/auth/web-login/confirm", perm.Public("POST /api/auth/web-login/confirm"), authH.WebLoginConfirm)
+	r.POST("/api/auth/web-login/poll", perm.Public("POST /api/auth/web-login/poll"), authH.WebLoginPoll)
 	r.POST("/api/auth/wechat/bind-code", perm.Require("POST /api/auth/wechat/bind-code"), authH.WechatBindCode)
 	r.POST("/api/auth/wechat/bind-code/confirm", perm.Public("POST /api/auth/wechat/bind-code/confirm"), authH.WechatBindByCode)
 	r.GET("/api/auth/qq/url", perm.Public("GET /api/auth/qq/url"), authH.QQAuthorize)

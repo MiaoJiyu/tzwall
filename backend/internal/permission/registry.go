@@ -93,6 +93,11 @@ var Endpoints = []Endpoint{
 	ep("GET", "/api/auth/wechat/web/bind/url", GroupAuth, "发起微信网页绑定", false, model.RoleUser),
 	ep("GET", "/api/auth/wechat/web/callback", GroupAuth, "微信网页授权回调", true),
 	epR("POST", "/api/auth/wechat/register", GroupAuth, "微信小程序注册完成", true, 0, 0, 20, 0),
+	// 网页登录（小程序扫码即登）：速率统一在矩阵配置
+	epR("POST", "/api/auth/web-login/session", GroupAuth, "网页登录会话", true, 0, 0, 30, 0),
+	epR("POST", "/api/auth/web-login/qrcode", GroupAuth, "网页登录小程序码", true, 0, 60, 0, 0),
+	epR("POST", "/api/auth/web-login/confirm", GroupAuth, "网页登录确认", true, 0, 0, 60, 0),
+	epR("POST", "/api/auth/web-login/poll", GroupAuth, "网页登录轮询", true, 0, 300, 0, 0),
 	ep("POST", "/api/auth/wechat/bind-code", GroupAuth, "生成微信绑定码", false, model.RoleUser),
 	ep("POST", "/api/auth/wechat/bind-code/confirm", GroupAuth, "微信绑定码确认", true),
 	ep("POST", "/api/auth/me", GroupAuth, "当前用户", false, model.RoleUser, model.RoleAdmin),

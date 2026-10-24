@@ -786,3 +786,163 @@ func (s *AuthService) RedeemSocialCode(code string) (*model.User, bool, error) {
 
 // SiteBaseURL 暴露站点外网地址（供 QQ 回调回跳前端）。
 func (s *AuthService) SiteBaseURL() string { return s.siteBaseURL() }
+
+// ───────────────────────── 网页登录：小程序扫码即登（方案 B） ─────────────────────────
+
+// CreateWebLoginSession 创建网页登录会话票据（一次性、5 分钟有效）。
+func (s *AuthService) CreateWebLoginSession() (string, error) {
+	tk := strings.ToUpper(randState()[:12])
+	s.cache.Set("web_login:"+tk, "pending", 5*time.Minute)
+	return tk, nil
+}
+
+// WebLoginQrcode 生成带 scene=票据 的小程序码（getwxacodeunlimited），返回 PNG 字节。
+// 小程序扫码后 onLoad 直接拿到 scene，即可一键确认网页登录。
+func (s *AuthService) WebLoginQrcode(ticket string) ([]byte, error) {
+	ticket = strings.ToUpper(strings.TrimSpace(ticket))
+	if ticket == "" {
+		return nil, errs.New(errs.ErrValidation, nil)
+	}
+	if _, ok := s.cache.Get("web_login:" + ticket); !ok {
+		return nil, errs.New(errs.ErrTokenInvalid, fmt.Errorf("登录会话已过期，请刷新"))
+	}
+	// 票据有效期内复用已生成的小程序码
+	ck := "web_login_qr:" + ticket
+	if v, ok := s.cache.Get(ck); ok {
+		if b, err := hex.DecodeString(v); err == nil {
+			return b, nil
+		}
+	}
+	at, err := s.wechatAccessToken()
+	if err != nil {
+		return nil, err
+	}
+	page := strings.TrimSpace(s.store.Get("miniprogram_confirm_page"))
+	if page == "" {
+		page = "pages/web-login/web-login"
+	}
+	body, _ := json.Marshal(map[string]any{
+		"scene":      ticket,
+		"page":       page,
+		"width":      280,
+		"check_path": false, // 页面未发布时也能生成，便于先联调
+	})
+	api := fmt.Sprintf("https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=%s", url.QueryEscape(at))
+	req, err := http.NewRequest(http.MethodPost, api, strings.NewReader(string(body)))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, err)
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return nil, errs.New(errs.CodeInternal, err)
+	}
+	// 失败时微信返回 JSON（errcode）；成功返回图片二进制
+	var er struct {
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+	}
+	if json.Unmarshal(data, &er) == nil && er.ErrCode != 0 {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, fmt.Errorf("小程序码生成失败 errcode=%d %s", er.ErrCode, er.ErrMsg))
+	}
+	if len(data) < 100 {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, fmt.Errorf("小程序码生成失败"))
+	}
+	s.cache.Set(ck, hex.EncodeToString(data), 5*time.Minute)
+	return data, nil
+}
+
+// wechatAccessToken 小程序全局 access_token（Redis 缓存，提前 5 分钟过期）。
+func (s *AuthService) wechatAccessToken() (string, error) {
+	const key = "wx_mp_access_token"
+	if v, ok := s.cache.Get(key); ok && v != "" {
+		return v, nil
+	}
+	c := s.resolveSocial()
+	if !c.WechatEnabled {
+		return "", errs.New(errs.ErrThirdPartyUnavailable, nil)
+	}
+	u := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
+		url.QueryEscape(c.WechatMPAppID), url.QueryEscape(c.WechatMPSecret))
+	data, err := httpGet(u, 10*time.Second)
+	if err != nil {
+		return "", errs.New(errs.ErrThirdPartyUnavailable, err)
+	}
+	var r struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+		ErrCode     int    `json:"errcode"`
+		ErrMsg      string `json:"errmsg"`
+	}
+	if err := json.Unmarshal(data, &r); err != nil {
+		return "", errs.New(errs.ErrThirdPartyUnavailable, err)
+	}
+	if r.ErrCode != 0 || r.AccessToken == "" {
+		return "", errs.New(errs.ErrThirdPartyUnavailable, fmt.Errorf("wechat access_token errcode=%d %s", r.ErrCode, r.ErrMsg))
+	}
+	ttl := time.Duration(r.ExpiresIn-300) * time.Second
+	if ttl < 60*time.Second {
+		ttl = 60 * time.Second
+	}
+	s.cache.Set(key, r.AccessToken, ttl)
+	return r.AccessToken, nil
+}
+
+// ConfirmWebLogin 小程序侧确认网页登录：票据 + wx.login code → 服务端校验微信身份 →
+// 必须已注册/绑定账号 → 写入一次性兑换码（网页轮询取得后经 /auth/social/exchange 换 JWT）。
+func (s *AuthService) ConfirmWebLogin(ticket, code string) error {
+	ticket = strings.ToUpper(strings.TrimSpace(ticket))
+	if ticket == "" {
+		return errs.New(errs.ErrValidation, nil)
+	}
+	v, ok := s.cache.Get("web_login:" + ticket)
+	if !ok {
+		return errs.New(errs.ErrTokenInvalid, fmt.Errorf("登录会话已过期，请在网页刷新后重试"))
+	}
+	if v != "pending" {
+		return errs.New(errs.ErrValidation, fmt.Errorf("该登录会话已被使用"))
+	}
+	if strings.TrimSpace(code) == "" {
+		return errs.New(errs.ErrValidation, nil)
+	}
+	sess, err := s.wechatCode2Session(code)
+	if err != nil {
+		return err
+	}
+	u, err := s.findExistingSocial("wechat", sess.Openid, sess.Unionid)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return errs.New(errs.ErrValidation, fmt.Errorf("该微信尚未注册账号，请先在小程序完成注册"))
+	}
+	exchange, err := s.SaveSocialCode(u.ID, false)
+	if err != nil {
+		return err
+	}
+	s.cache.Set("web_login:"+ticket, "confirmed|"+exchange, 5*time.Minute)
+	return nil
+}
+
+// PollWebLogin 网页轮询登录会话状态：pending / confirmed(携带一次性兑换码) / expired。
+func (s *AuthService) PollWebLogin(ticket string) (status, exchange string, err error) {
+	ticket = strings.ToUpper(strings.TrimSpace(ticket))
+	if ticket == "" {
+		return "", "", errs.New(errs.ErrValidation, nil)
+	}
+	v, ok := s.cache.Get("web_login:" + ticket)
+	if !ok {
+		return "expired", "", nil
+	}
+	if strings.HasPrefix(v, "confirmed|") {
+		// 一次性：取走后即删
+		s.cache.Del("web_login:" + ticket)
+		return "confirmed", strings.TrimPrefix(v, "confirmed|"), nil
+	}
+	return "pending", "", nil
+}

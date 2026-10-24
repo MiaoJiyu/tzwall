@@ -6,6 +6,7 @@ import { ElMessage } from 'element-plus'
 import { authApi } from '@/api'
 import { useMetaStore } from '@/stores/meta'
 import MiniProgramQrDialog from '@/components/MiniProgramQrDialog.vue'
+import WebLoginDialog from '@/components/WebLoginDialog.vue'
 
 const meta = useMetaStore()
 const router = useRouter()
@@ -17,6 +18,10 @@ const social = ref({ wechat: false, wechat_web: false, qq: false })
 const wechatChoose = ref(false)
 const mp = computed(() => meta.site?.miniprogram || {})
 const mpLoginDialog = ref(false)
+const webLoginDialog = ref(false)
+function onWebLoginOk() {
+  router.push('/')
+}
 onMounted(() => {
   social.value = {
     wechat: !!meta.site?.features?.social?.wechat,
@@ -52,7 +57,7 @@ function wechatLogin() {
 }
 function wechatMiniapp() {
   wechatChoose.value = false
-  mpLoginDialog.value = true // 登录/注册场景：弹「登录小程序码」
+  webLoginDialog.value = true // 登录/注册场景：弹「网页扫码即登」小程序码（带 scene）
 }
 async function wechatWeb() {
   wechatChoose.value = false
@@ -278,6 +283,9 @@ onBeforeUnmount(() => {
 
     <!-- 登录/注册场景小程序码（与绑定场景独立） -->
     <MiniProgramQrDialog v-model="mpLoginDialog" title="微信登录 / 注册" :name="mp.name" :qrcode="mp.login_qrcode" :desc="mp.login_desc" />
+
+    <!-- 网页扫码即登（方案 B：动态小程序码携带 scene，小程序确认后自动登录） -->
+    <WebLoginDialog v-model="webLoginDialog" :name="mp.name" :desc="mp.login_desc" :fallback-qrcode="mp.login_qrcode" @success="onWebLoginOk" />
   </div>
 </template>
 

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/url"
 	"strings"
@@ -277,6 +278,73 @@ func (h *AuthHandler) SocialExchange(c *gin.Context) {
 		return
 	}
 	response.OK(c, gin.H{"token": tok, "user": userSocialView(u), "is_new": isNew})
+}
+
+// ───────────────────────── 网页登录：小程序扫码即登（方案 B） ─────────────────────────
+
+// WebLoginSession 创建网页登录会话（返回一次性票据）。
+func (h *AuthHandler) WebLoginSession(c *gin.Context) {
+	tk, err := h.svc.CreateWebLoginSession()
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"ticket": tk, "expires_in": 300})
+}
+
+// WebLoginQrcode 生成带 scene=票据 的小程序码（返回 base64 PNG）。
+func (h *AuthHandler) WebLoginQrcode(c *gin.Context) {
+	var req struct {
+		Ticket string `json:"ticket"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	img, err := h.svc.WebLoginQrcode(req.Ticket)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"image_base64": base64.StdEncoding.EncodeToString(img)})
+}
+
+// WebLoginConfirm 小程序侧确认网页登录（票据 + wx.login 的 code）。
+func (h *AuthHandler) WebLoginConfirm(c *gin.Context) {
+	var req struct {
+		Ticket string `json:"ticket"`
+		Code   string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	if err := h.svc.ConfirmWebLogin(req.Ticket, req.Code); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
+// WebLoginPoll 网页轮询登录会话：pending / confirmed(携带一次性兑换码) / expired。
+func (h *AuthHandler) WebLoginPoll(c *gin.Context) {
+	var req struct {
+		Ticket string `json:"ticket"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	status, exchange, err := h.svc.PollWebLogin(req.Ticket)
+	if err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"status": status, "exchange_code": exchange})
 }
 
 // BindProvider 将第三方账号绑定到当前已登录用户。
