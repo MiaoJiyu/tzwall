@@ -118,8 +118,29 @@ func (s *cosStorage) ProcessedGet(ctx context.Context, key, ciRule string) (io.R
 	}
 	base := strings.TrimRight(strings.TrimSpace(s.cfg.CosBaseURL), "/")
 	if base == "" || !strings.Contains(base, "://") {
-		base = fmt.Sprintf("https://%s.cos.%s.myqcloud.com", s.cfg.CosBucket, s.cfg.CosRegion)
+		base = s.stdBase()
 	}
+	rc, err := s.processedGetFrom(ctx, base, key, ciRule)
+	if err == nil {
+		return rc, nil
+	}
+	// 配置的自定义域名不可达（解析/证书/内网 SNI 不兼容等）时，回退标准 COS 域名重试一次，
+	// 避免盲水印长期静默失败（曾因自定义域名不可用导致全部回退原图）。
+	if std := s.stdBase(); std != base {
+		if rc2, err2 := s.processedGetFrom(ctx, std, key, ciRule); err2 == nil {
+			return rc2, nil
+		}
+	}
+	return nil, err
+}
+
+// stdBase 标准 COS 域名（同地域内网由 VPC  DNS 自动解析，无需公网下行）。
+func (s *cosStorage) stdBase() string {
+	return fmt.Sprintf("https://%s.cos.%s.myqcloud.com", s.cfg.CosBucket, s.cfg.CosRegion)
+}
+
+// processedGetFrom 从指定域名发起带 CI 规则的取流（签名传输覆盖查询参数）。
+func (s *cosStorage) processedGetFrom(ctx context.Context, base, key, ciRule string) (io.ReadCloser, error) {
 	u := base + "/" + url.PathEscape(key) + "?" + ciRule
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -144,21 +165,51 @@ func (s *cosStorage) ProcessedGet(ctx context.Context, key, ciRule string) (io.R
 // （XML，含 <Text>/<WatermarkStatusCode>），随后删除临时对象。
 // 提取需与嵌入同账号同桶；fileid 与临时对象一致，避免额外落对象。
 func (s *cosStorage) ExtractTextWatermark(ctx context.Context, data []byte, contentType string) ([]byte, error) {
-	base := strings.TrimRight(strings.TrimSpace(s.cfg.CosBaseURL), "/")
-	if base == "" || !strings.Contains(base, "://") {
-		base = fmt.Sprintf("https://%s.cos.%s.myqcloud.com", s.cfg.CosBucket, s.cfg.CosRegion)
-	}
 	// 临时对象：识别后即删，避免桶内残留
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	key := "wmcheck/" + hex.EncodeToString(b)
-
 	// PUT Object + Pic-Operations（上传即提取）。签名传输会将 Pic-Operations 等头签入。
-	u := base + "/" + url.PathEscape(key)
 	picOps := fmt.Sprintf(`{"is_pic_info":1,"rules":[{"fileid":%q,"rule":"watermark/4/type/3/version/3.0"}]}`, key)
+
+	var lastErr error
+	for _, base := range s.ciBases() {
+		body, status, err := s.putPicOps(ctx, base, key, data, contentType, picOps)
+		// 识别完成后删除临时对象（与成败无关，且每个候选域名都清理）
+		s.deleteObject(ctx, base, key)
+		if err != nil {
+			lastErr = err
+			continue // 域名不可达：换下一个候选
+		}
+		if status != http.StatusOK {
+			if status == http.StatusForbidden || status == http.StatusNotFound {
+				return nil, ErrObjectUnavailable
+			}
+			lastErr = fmt.Errorf("cos 盲水印识别失败: %s", http.StatusText(status))
+			continue
+		}
+		return body, nil
+	}
+	return nil, lastErr
+}
+
+// ciBases 候选域名列表：优先使用配置的 COS_BASE_URL，随后是标准 COS 域名（去重）。
+// 自定义域名在内网不可达时（证书/SNI 不兼容等）会自动回退标准域名。
+func (s *cosStorage) ciBases() []string {
+	std := s.stdBase()
+	cfgBase := strings.TrimRight(strings.TrimSpace(s.cfg.CosBaseURL), "/")
+	if cfgBase == "" || !strings.Contains(cfgBase, "://") || cfgBase == std {
+		return []string{std}
+	}
+	return []string{cfgBase, std}
+}
+
+// putPicOps 上传临时对象并携带 Pic-Operations（用于盲水印识别）。
+func (s *cosStorage) putPicOps(ctx context.Context, base, key string, data []byte, contentType, picOps string) ([]byte, int, error) {
+	u := base + "/" + url.PathEscape(key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(data))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -166,20 +217,11 @@ func (s *cosStorage) ExtractTextWatermark(ctx context.Context, data []byte, cont
 	req.Header.Set("Pic-Operations", picOps)
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		s.deleteObject(ctx, base, key)
-		return nil, err
+		return nil, 0, err
 	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	resp.Body.Close()
-	// 识别完成后删除临时对象（与成败无关）
-	s.deleteObject(ctx, base, key)
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
-			return nil, ErrObjectUnavailable
-		}
-		return nil, fmt.Errorf("cos 盲水印识别失败: %s", resp.Status)
-	}
-	return body, nil
+	return body, resp.StatusCode, nil
 }
 
 // deleteObject 尽力删除 COS 对象（清理识别用的临时对象）。

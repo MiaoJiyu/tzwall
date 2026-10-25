@@ -147,6 +147,10 @@ func (a *AccessLogger) Log() gin.HandlerFunc {
 			IP:          ClientIP(c),
 			UserID:      uid,
 			StatusCode:  c.Writer.Status(),
+			BytesSent:   int64(c.Writer.Size()),
+			CacheStatus: c.GetString("cache_status"),
+			Resource:    c.GetString("resource"),
+			Watermark:   c.GetBool("watermark"),
 			DurationMs:  time.Since(start).Milliseconds(),
 			CreatedAt:   time.Now(),
 		}

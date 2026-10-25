@@ -95,10 +95,11 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.GET("/api/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 
 	// 元信息（公开）
-	r.GET("/api/meta/site", perm.Public("GET /api/meta/site"), metaH.Site)
-	r.GET("/api/meta/agreements", perm.Public("GET /api/meta/agreements"), metaH.Agreements)
+	// meta / 公告：高频小接口，加 ETag + 私有短缓存，减少重复请求的公网上行
+	r.GET("/api/meta/site", perm.Public("GET /api/meta/site"), middleware.ETag(60), metaH.Site)
+	r.GET("/api/meta/agreements", perm.Public("GET /api/meta/agreements"), middleware.ETag(300), metaH.Agreements)
 	r.GET("/api/meta/agreement", perm.Public("GET /api/meta/agreement"), metaH.Agreement)
-	r.GET("/api/meta/routes", perm.Public("GET /api/meta/routes"), metaH.Routes)
+	r.GET("/api/meta/routes", perm.Public("GET /api/meta/routes"), middleware.ETag(60), metaH.Routes)
 
 	// 内容审核回调（腾讯云数据万象）
 	r.POST("/api/moderation/callback", perm.Public("POST /api/moderation/callback"), modH.Callback)
@@ -193,7 +194,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/conversations/:id/read", perm.Require("POST /api/conversations/:id/read"), chatH.Read)
 
 	// 公告（公开列表 + 确认）
-	r.GET("/api/announcements", perm.Public("GET /api/announcements"), annH.List)
+	r.GET("/api/announcements", perm.Public("GET /api/announcements"), middleware.ETag(60), annH.List)
 	r.POST("/api/announcements/:id/confirm", perm.Require("POST /api/announcements/:id/confirm"), annH.Confirm)
 	// 公告管理（管理员）
 	r.GET("/api/admin/announcements", perm.Require("GET /api/admin/announcements"), annH.AdminList)

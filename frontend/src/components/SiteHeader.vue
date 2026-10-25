@@ -14,8 +14,9 @@ const router = useRouter()
 const keyword = ref('')
 const mobileOpen = ref(false)
 
-// 未读私聊角标
+// 未读私聊角标（自适应轮询：30s 一次；页面隐藏时暂停；回到前台立即刷新）
 const unread = ref(0)
+const UNREAD_POLL_MS = 30000
 let unreadTimer: any = null
 async function loadUnread() {
   if (!auth.isLoggedIn) {
@@ -29,12 +30,31 @@ async function loadUnread() {
     /* 忽略 */
   }
 }
+function startUnreadPoll() {
+  stopUnreadPoll()
+  unreadTimer = setInterval(() => {
+    // 页面不可见时不发请求，降低无谓流量
+    if (document.visibilityState === 'hidden') return
+    loadUnread()
+  }, UNREAD_POLL_MS)
+}
+function stopUnreadPoll() {
+  if (unreadTimer) {
+    clearInterval(unreadTimer)
+    unreadTimer = null
+  }
+}
+function onVisibility() {
+  if (document.visibilityState === 'visible') loadUnread()
+}
 onMounted(() => {
   loadUnread()
-  unreadTimer = setInterval(loadUnread, 15000)
+  startUnreadPoll()
+  document.addEventListener('visibilitychange', onVisibility)
 })
 onBeforeUnmount(() => {
-  if (unreadTimer) clearInterval(unreadTimer)
+  stopUnreadPoll()
+  document.removeEventListener('visibilitychange', onVisibility)
 })
 
 function doSearch() {
@@ -62,7 +82,7 @@ async function logout() {
   <header class="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur">
     <div class="mx-auto flex h-16 max-w-[1200px] items-center gap-4 px-4">
       <a class="flex items-center gap-2" @click="go('/')">
-        <img src="/favicon.svg" class="h-8 w-8" alt="校徽" />
+        <img src="/favicon.png" class="h-8 w-8" alt="校徽" />
         <span class="font-serif-sc text-lg font-bold text-[var(--grape)]">{{ meta.site.site_name || '泰兴中学校园墙' }}</span>
       </a>
 

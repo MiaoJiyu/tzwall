@@ -183,6 +183,7 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 		if v, ok := h.cache.Get(cacheKey); ok {
 			dec, err := hex.DecodeString(v)
 			if err == nil {
+				c.Set("cache_status", "mem") // 后端字节缓存命中（未走 COS）
 				c.Data(http.StatusOK, contentTypeOrDefault(im.ContentType), dec)
 				return
 			}
@@ -231,6 +232,12 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 	} else {
 		ttl := time.Duration(h.store.Int("image_cache_ttl_seconds", 604800)) * time.Second
 		c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d, immutable", int(ttl.Seconds())))
+	}
+	// 流量与溯源标记（供访问日志记录字节数/缓存来源/资源/是否走盲水印）
+	c.Set("resource", fmt.Sprintf("image:%d", id))
+	c.Set("watermark", useWatermark)
+	if c.GetString("cache_status") == "" {
+		c.Set("cache_status", "origin")
 	}
 	c.Data(http.StatusOK, contentTypeOrDefault(im.ContentType), out)
 }

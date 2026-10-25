@@ -114,7 +114,7 @@ async function wechatWeb() {
       <div class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl"></div>
       <div class="absolute -bottom-20 -left-10 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
       <div class="flex items-center gap-2">
-        <img src="/favicon.svg" class="h-10 w-10" alt="校徽" />
+        <img src="/favicon.png" class="h-10 w-10" alt="校徽" />
         <span class="font-serif-sc text-xl font-bold">泰兴中学校园墙</span>
       </div>
       <div>

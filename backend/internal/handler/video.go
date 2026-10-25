@@ -117,6 +117,9 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 // Proxy 鉴权视频代理，支持 HTTP Range（拖动播放）。
 func (h *VideoHandler) Proxy(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	// 流量与溯源标记（供访问日志记录资源与缓存来源）
+	c.Set("resource", fmt.Sprintf("video:%d", id))
+	c.Set("cache_status", "origin")
 
 	// 视频链接为纯路径，无需签名校验。
 	var v model.SubmissionVideo

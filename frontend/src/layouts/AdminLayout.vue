@@ -25,7 +25,7 @@ async function logout() {
   <div class="flex min-h-screen bg-[var(--bg)]">
     <aside class="flex w-60 flex-col border-r border-[var(--border)] bg-[var(--surface)]">
       <div class="flex h-16 items-center gap-2 border-b border-[var(--border)] px-5">
-        <img src="/favicon.svg" class="h-8 w-8" alt="校徽" />
+        <img src="/favicon.png" class="h-8 w-8" alt="校徽" />
         <span class="font-serif-sc text-base font-bold text-[var(--grape)]">校园墙管理</span>
       </div>
       <nav class="flex-1 space-y-1 p-3">

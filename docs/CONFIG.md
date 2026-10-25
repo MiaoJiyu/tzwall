@@ -260,3 +260,36 @@ curl -X POST http://127.0.0.1/api/admin/images/sync-private \
 | 登录 429 | 触发登录频率限制（`login_rph`），或 Redis 中 `rl:login:*` 计数 |
 | 后台入口缺失 | 「访问权限」未授权该端点／页面 |
 | 定时任务/备份不跑 | `systemctl status tzwall-backup.timer` |
+
+---
+
+## 七、网络与流量优化（公网上行）
+
+目标：降低服务器公网上行（EdgeOne→用户方向）与 COS 外网下行，同时保留盲水印与完整可溯源能力。
+
+### 1. 缓存分层
+| 层 | 对象 | 键 | TTL | 说明 |
+|---|---|---|---|---|
+| 浏览器 | 媒体/静态资源 | URL | 图片 5min（水印）/ 7d（原图）；视频 1d | 由后端 `Cache-Control` 控制 |
+| **Nginx 源站盾** | `/api/images/` `/api/videos/` | 图片 `$uri:$arg_u`（游客按 IP）；视频 `$uri$http_range` | 图片 5min；视频 1h | 重复访问不再回源后端，**键按查看者隔离，避免盲水印跨用户串用** |
+| 后端字节缓存 | 无水印图片 | `img:<id>` | `watermark_cache_seconds` | 仅无水印场景 |
+| 本地磁盘盾 | COS 对象 | key 哈希 | 长期（容量淘汰） | 减少 COS 取流 |
+
+- 缓存区：`/var/cache/nginx/tzwall_media`（6G 上限、7 天未用剔除），配置在 `conf.d/tzwall-media-cache.conf`。
+- **立即失效（下架/删图）**：`rm -rf /var/cache/nginx/tzwall_media/*`（后端已会返回 403，清缓存后即刻生效）。
+- 响应头 `X-Cache-Status`：`HIT/MISS/BYPASS/UPDATING`，用于观测命中率。
+
+### 2. 可观测与溯源
+- **Nginx 访问日志**（`log_format tzwall`，定义于 `conf.d/tzwall-traffic-log.conf`）：含 `cache=`（缓存状态）、`$body_bytes_sent`（响应字节）、`rt/urt`（耗时）、`rid`（请求 ID）。
+- **后端 `access_logs`** 新增字段：`bytes_sent`（响应字节，计费依据）、`cache_status`（`mem`=后端字节缓存命中 / `origin`=回源）、`resource`（如 `image:27`）、`watermark`（是否走盲水印）。
+- 双向溯源：`rid` 关联 nginx 与后端日志；`resource` + `watermark` 关联到具体媒体与水印批次。
+
+### 3. 静态资源瘦身
+- `favicon.svg`（原 4.0MB，VTracer 逐像素追踪产物）→ `favicon.png` 256×256 调色板（**19.9KB**，降幅 99.5%）；原文件备份在 `backup/`。
+- `dist` 体积 8.7MB → 4.9MB。
+- 未读角标轮询：15s → 30s，且**页面隐藏时暂停、回前台立即刷新**。
+- `meta/site`、`meta/routes`、`meta/agreements`、`announcements` 增加 **ETag + 304** 与 `private, max-age` 短缓存，避免重复传输相同 JSON。
+
+### 4. COS 内网与盲水印修复
+- `COS_BASE_URL` 指向**同地域内网域名**（`cos-internal.ap-nanjing.myqcloud.com`）：免 COS 公网下行、更低延迟。
+- 修复：`ProcessedGet` 在自定义域名不可达时**自动回退标准 COS 域名**（此前 `cos.tzwall.miaojiyu.top` 服务器侧 TLS 不可达，导致盲水印长期静默失败、全部回退原图）。
