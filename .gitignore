@@ -36,9 +36,13 @@ coverage.txt
 profile.cov
 
 # ---------- 前端（Vue3 + Vite）----------
+node_modules/
 frontend/node_modules/
 frontend/.pnpm-store/
-frontend/public/*
+# 注意：frontend/public/ 下是站点静态资源（favicon、QQ/微信图标、小程序码、捐赠图等），需要入库，请勿整体忽略
+frontend/public/**/*.tmp
+frontend/public/app.png
+frontend/public/donate.jpg
 
 # 构建产物（由 deploy.sh 在服务器上构建）
 frontend/dist/
@@ -61,6 +65,14 @@ npm-debug.log*
 nohup.out
 core
 core.*
+
+# 维护模式运行时状态：标志文件与生成的维护页由程序/脚本生成，不入库
+# （./maintenance.sh 与后台配置会自动创建 run/MAINTENANCE 与 run/maintenance.html）
+run/
+
+# 进程与套接字
+*.pid
+*.sock
 
 # ---------- 测试与截图产物 ----------
 .playwright-cli/
