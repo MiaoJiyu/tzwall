@@ -93,6 +93,7 @@ export const commentApi = {
   list: (id: number) => http.get('/submissions/' + id + '/comments'),
   create: (id: number, p: any) => http.post('/submissions/' + id + '/comments', p),
   remove: (id: number) => http.delete('/comments/' + id),
+  like: (id: number) => http.post('/comments/' + id + '/like'),
 }
 
 export const interactionApi = {
@@ -120,6 +121,7 @@ export const adminApi = {
   restoreSubmission: (id: number) => http.post('/admin/submissions/' + id + '/restore'),
   removeComment: (id: number) => http.post('/admin/comments/' + id + '/remove'),
   restoreComment: (id: number) => http.post('/admin/comments/' + id + '/restore'),
+  comments: (params: any) => http.get('/admin/comments', { params }),
   songs: (params: any) => http.get('/admin/songs', { params }),
   songStatus: (id: number, status: string) => http.post('/admin/songs/' + id + '/status', { status }),
   deleteSong: (id: number) => http.delete('/admin/songs/' + id),

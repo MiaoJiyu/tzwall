@@ -37,6 +37,10 @@ type Config struct {
 	CosBaseURL   string
 	// CosAuditBizType 数据万象审核策略模板（留空使用默认策略）
 	CosAuditBizType string
+	// MaintenanceFlag / MaintenanceHTML 维护模式：nginx 依标志文件直接返回静态维护页，
+	// 因此后端或前端正在更新/下线时，访客仍能看到维护提示（与接口是否可用无关）。
+	MaintenanceFlag string
+	MaintenanceHTML string
 	// CosCallbackToken 审核回调校验 Token（留空则不校验）
 	CosCallbackToken string
 
@@ -126,6 +130,8 @@ func Load() *Config {
 	c.CosBaseURL = getenv("COS_BASE_URL", "")
 	c.CosAuditBizType = getenv("COS_AUDIT_BIZ_TYPE", "")
 	c.CosCallbackToken = getenv("COS_CALLBACK_TOKEN", "")
+	c.MaintenanceFlag = getenv("MAINTENANCE_FLAG_PATH", "/opt/tzwall/run/MAINTENANCE")
+	c.MaintenanceHTML = getenv("MAINTENANCE_HTML_PATH", "/opt/tzwall/run/maintenance.html")
 
 	c.SmtpHost = getenv("SMTP_HOST", "")
 	c.SmtpPort, _ = strconv.Atoi(getenv("SMTP_PORT", "465"))

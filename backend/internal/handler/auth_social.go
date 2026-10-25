@@ -29,6 +29,8 @@ func userSocialView(u *model.User) gin.H {
 		"email_verified": u.EmailVerified,
 		"wechat_bound":   u.WxOpenid != "",
 		"qq_bound":       u.QqOpenid != "",
+		"real_name_filled": u.RealName != "",
+		"school_filled":    u.School != "",
 		"status":         u.Status,
 		"created_at":     u.CreatedAt,
 	}

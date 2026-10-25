@@ -38,7 +38,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	resolver := permission.NewResolver(d.DB)
 	perm := middleware.NewPermission(resolver, d.Cache)
 
-	authMW := middleware.NewAuth(d.Cfg, d.DB)
+	authMW := middleware.NewAuth(d.Cfg, d.DB, d.Store)
 	// 处罚服务同时服务于中间件与后台：统一实例，注入词表用于新用户名校验
 	punSvc := service.NewPunishment(d.DB, d.Cfg, d.Cache, d.Store, d.Mailer)
 	words := service.NewWordFilter(d.DB)
@@ -169,8 +169,10 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/tickets/:id/close", perm.Require("POST /api/tickets/:id/close"), ticketH.Close)
 	r.POST("/api/submissions/:id/comments", perm.Require("POST /api/submissions/:id/comments"), commentH.Create)
 	r.DELETE("/api/comments/:id", perm.Require("DELETE /api/comments/:id"), commentH.Delete)
+	r.POST("/api/comments/:id/like", perm.Require("POST /api/comments/:id/like"), commentH.Like)
 	r.POST("/api/admin/comments/:id/remove", perm.Require("POST /api/admin/comments/:id/remove"), commentH.AdminRemove)
 	r.POST("/api/admin/comments/:id/restore", perm.Require("POST /api/admin/comments/:id/restore"), commentH.AdminRestore)
+	r.GET("/api/admin/comments", perm.Require("GET /api/admin/comments"), commentH.AdminList)
 
 	// 互动（私有）
 	r.POST("/api/reactions", perm.Require("POST /api/reactions"), interH.React)

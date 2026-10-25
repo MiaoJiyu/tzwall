@@ -39,6 +39,7 @@ const routes = [
       { path: 'users', name: 'admin-users', component: () => import('@/views/admin/Users.vue'), meta: { page: 'page:admin.users' } },
       { path: 'submissions', name: 'admin-submissions', component: () => import('@/views/admin/Submissions.vue'), meta: { page: 'page:admin.submissions' } },
       { path: 'all-submissions', name: 'admin-all-submissions', component: () => import('@/views/admin/AllSubmissions.vue'), meta: { page: 'page:admin.allsubmissions' } },
+      { path: 'comments', name: 'admin-comments', component: () => import('@/views/admin/Comments.vue'), meta: { page: 'page:admin.comments' } },
       { path: 'tags', name: 'admin-tags', component: () => import('@/views/admin/Tags.vue'), meta: { page: 'page:admin.tags' } },
       { path: 'songs', name: 'admin-songs', component: () => import('@/views/admin/Songs.vue'), meta: { page: 'page:admin.songs' } },
       { path: 'polls', name: 'admin-polls', component: () => import('@/views/admin/Polls.vue'), meta: { page: 'page:admin.polls' } },

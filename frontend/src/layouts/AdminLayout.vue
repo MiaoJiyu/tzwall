@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
-import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity, ScanLine, Ticket, Megaphone } from 'lucide-vue-next'
+import { LayoutDashboard, Users, FileCheck, Files, Tags, Music, BarChart3, LogOut, Shield, Flag, Gavel, ShieldCheck, Settings, ScrollText, ClipboardList, Activity, ScanLine, Ticket, Megaphone, MessageSquare } from 'lucide-vue-next'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const auth = useAuthStore()
@@ -33,6 +33,7 @@ async function logout() {
         <router-link to="/admin/users" class="admin-link"><Users :size="18" /> 用户管理</router-link>
         <router-link to="/admin/submissions" class="admin-link"><FileCheck :size="18" /> 投稿审核</router-link>
         <router-link to="/admin/all-submissions" class="admin-link"><Files :size="18" /> 所有稿件</router-link>
+        <router-link to="/admin/comments" class="admin-link"><MessageSquare :size="18" /> 评论管理</router-link>
         <router-link to="/admin/tags" class="admin-link"><Tags :size="18" /> 标签管理</router-link>
         <router-link to="/admin/songs" class="admin-link"><Music :size="18" /> 点歌管理</router-link>
         <router-link to="/admin/polls" class="admin-link"><BarChart3 :size="18" /> 投票管理</router-link>

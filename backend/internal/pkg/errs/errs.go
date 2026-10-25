@@ -36,6 +36,7 @@ const (
 	ErrThirdPartyUnavailable = 41024 // 第三方登录未配置或不可用
 	ErrIdentityConflict      = 41025 // 第三方账号已绑定到其他用户
 	ErrSocialNoAccount       = 41026 // 第三方身份未关联本站账号（且未开启自动建号）
+	ErrProfileIncomplete     = 41027 // 社交账号未完善真实姓名/就读学校（仅网页端强制）
 )
 
 // Msg 业务码到默认文案的映射。
@@ -74,6 +75,7 @@ var Msg = map[int]string{
 	ErrThirdPartyUnavailable: "第三方登录未配置或暂不可用",
 	ErrIdentityConflict:      "该第三方账号已绑定到其他用户",
 	ErrSocialNoAccount:       "该第三方账号尚未关联本站账号，请先注册或用其他方式登录后绑定",
+	ErrProfileIncomplete:     "请先完善真实姓名与就读学校",
 }
 
 func Text(code int) string {

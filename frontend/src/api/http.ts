@@ -7,6 +7,8 @@ http.interceptors.request.use((cfg) => {
   const t = localStorage.getItem('token')
   if (t) cfg.headers.Authorization = 'Bearer ' + t
   if (crypto && crypto.randomUUID) cfg.headers['X-Request-Id'] = crypto.randomUUID()
+  // 标记为网页端：后端据此仅在网页端执行「社交账号强制完善资料」等策略，不影响小程序
+  cfg.headers['X-Client'] = 'web'
   return cfg
 })
 
@@ -69,6 +71,8 @@ http.interceptors.response.use(
     const code = body.code
     if (resp.status === 401 || code === 40100) {
       handleSessionExpired(silent) // 会话失效：清本地，非静默时提示并跳登录
+    } else if (code === 41027) {
+      // 资料未完善：由全局门禁（ProfileCompleteGate）统一提示与拦截，此处不弹 toast 避免打扰
     } else if (resp.status === 403 || code === 41011) {
       if (!silent) ElMessage.error(body.message || '请求端点失败，请联系系统管理员')
     } else if (resp.status === 429 || code === 42900) {

@@ -4,6 +4,9 @@
 #   ./build-frontend.sh                 # 默认堆内存上限 512MB
 #   FE_MAX_OLD_SPACE=768 ./build-frontend.sh   # 自定义上限（MB）
 # 说明：构建会把 frontend/public/* 一并复制到 dist/，故新增 public 文件后跑一次即可生效。
+# 提示：上线更新前建议先开启维护模式，避免用户看到构建中的页面：
+#   /opt/tzwall/maintenance.sh on "正在更新，请稍候"   # 开启（全站显示维护页）
+#   /opt/tzwall/maintenance.sh off                    # 更新完成后关闭
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

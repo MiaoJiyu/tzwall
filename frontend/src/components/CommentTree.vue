@@ -1,11 +1,38 @@
 <script setup lang="ts">
-import { Reply, Trash2, Flag, Ban, Gavel, RotateCcw } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { Reply, Trash2, Flag, Ban, Gavel, RotateCcw, ThumbsUp } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { commentApi } from '@/api'
 import TitleBadge from '@/components/TitleBadge.vue'
 
 const props = defineProps<{ node: any; submissionId: number }>()
 const emit = defineEmits(['reply', 'delete', 'report', 'moderate-remove', 'moderate-restore', 'penalty'])
 const auth = useAuthStore()
+const router = useRouter()
+
+// 点赞（含防抖：请求进行中忽略重复点击；未登录给引导提示）
+const liking = ref(false)
+async function onLike() {
+  if (props.node.deleted) return
+  if (!auth.isLoggedIn) {
+    ElMessage.warning('请先登录后再点赞')
+    router.push('/login')
+    return
+  }
+  if (liking.value) return
+  liking.value = true
+  try {
+    const r: any = await commentApi.like(props.node.id)
+    props.node.my_liked = !!r.liked
+    props.node.like_count = r.like_count ?? 0
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '操作失败，请稍后再试')
+  } finally {
+    liking.value = false
+  }
+}
 </script>
 
 <template>
@@ -31,6 +58,16 @@ const auth = useAuthStore()
 
         <div class="mt-1 flex gap-3 text-xs text-[var(--text-soft)]">
           <span>{{ node.created_at }}</span>
+          <!-- 点赞：任意评论/回复均可点赞；未登录点击引导登录；请求中禁用防抖 -->
+          <button
+            v-if="!node.deleted"
+            class="inline-flex items-center gap-0.5 hover:text-[var(--grape)]"
+            :class="[node.my_liked ? 'text-[var(--grape)]' : '', liking ? 'pointer-events-none opacity-60' : '']"
+            @click="onLike"
+          >
+            <ThumbsUp :size="13" :fill="node.my_liked ? 'currentColor' : 'none'" />
+            {{ node.like_count || 0 }}
+          </button>
           <button v-if="!node.deleted && auth.isLoggedIn" class="inline-flex items-center gap-0.5 hover:text-[var(--grape)]" @click="emit('reply', node)">
             <Reply :size="13" /> 回复
           </button>

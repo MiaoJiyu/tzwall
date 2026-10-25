@@ -156,6 +156,28 @@ openssl rand -hex 32
 ### 日志 / 运维 / 页脚
 `log_access_retention_days`、`log_audit_retention_days`、`upload_dir`、`ops_disk_warn_percent`、`ops_cos_alert_gb`、`backup_dir`、`footer_icp`、`footer_psba`、`footer_custom`
 
+### 运维（维护模式）
+| 键 | 说明 | 默认 |
+|---|---|---|
+| `maintenance_enabled` | 系统维护模式开关 | false |
+| `maintenance_message` | 维护页展示的说明文案（支持多行） | 站点正在更新维护，请稍后再来。 |
+
+**维护模式工作原理**：开启后由 **Nginx 依据标志文件**（`/opt/tzwall/run/MAINTENANCE`）直接返回静态维护页
+（`/opt/tzwall/run/maintenance.html`，位于前端 `dist` 之外）。因此**前端构建或后端下线期间，访客仍能看到维护提示**，
+页面每 20 秒自动重试，维护结束后自动恢复，无需用户手动刷新。
+
+- 后台开启/关闭：系统配置 → 运维 → 系统维护模式（保存即生效，无需重启）。
+- 命令行开关（后端不可用时同样可用）：
+  ```bash
+  /opt/tzwall/maintenance.sh on "正在更新，请稍候"   # 开启（可附自定义文案）
+  /opt/tzwall/maintenance.sh off                    # 关闭
+  /opt/tzwall/maintenance.sh msg "新的维护说明"       # 仅更新文案
+  /opt/tzwall/maintenance.sh status                 # 查看状态
+  ```
+- 维护期间**仍放行**：`/api/*`（接口）、`/admin/*`（管理员后台，可登录并关闭维护）、`/assets/*` 与静态资源。
+  其余站点页面统一返回维护页（HTTP 503 + `Cache-Control: no-store`，CDN 不缓存）。
+- 推荐上线流程：`maintenance.sh on` → 更新前端/后端 → 验证 → `maintenance.sh off`。
+
 > SMTP 也可在「系统配置 → 注册与登录」中填写（后台优先于 `.env`）。
 
 ---

@@ -143,6 +143,7 @@ var Endpoints = []Endpoint{
 	// 用户公开主页
 	ep("GET", "/api/users/:id/public", GroupSocial, "用户公开主页", true),
 	ep("POST", "/api/reactions", GroupSocial, "点赞点踩", false, model.RoleUser, model.RoleAdmin),
+	ep("POST", "/api/comments/:id/like", GroupSocial, "评论点赞", false, model.RoleUser, model.RoleAdmin),
 	// 公告
 	ep("GET", "/api/announcements", GroupSystem, "公告列表", true),
 	ep("POST", "/api/announcements/:id/confirm", GroupSystem, "确认公告", false, model.RoleUser, model.RoleAdmin),
@@ -222,6 +223,7 @@ var Endpoints = []Endpoint{
 	ep("GET", "/api/admin/submissions/all", GroupContent, "全部稿件", false, model.RoleAdmin),
 	ep("POST", "/api/admin/comments/:id/remove", GroupContent, "撤下评论", false, model.RoleAdmin),
 	ep("POST", "/api/admin/comments/:id/restore", GroupContent, "恢复评论", false, model.RoleAdmin),
+	ep("GET", "/api/admin/comments", GroupContent, "评论管理列表", false, model.RoleAdmin),
 	ep("POST", "/api/admin/images/sync-private", GroupMedia, "同步图片私有ACL", false, model.RoleAdmin),
 	ep("POST", "/api/admin/submissions/:id/review", GroupContent, "审核投稿", false, model.RoleAdmin),
 	ep("POST", "/api/admin/submissions/:id/restore", GroupContent, "恢复投稿", false, model.RoleAdmin),
@@ -276,6 +278,7 @@ var Pages = []Page{
 	{Key: "page:admin.users", Path: "/admin/users", Label: "用户管理", Requires: []string{"GET /api/admin/users"}},
 	{Key: "page:admin.submissions", Path: "/admin/submissions", Label: "投稿审核", Requires: []string{"GET /api/admin/submissions/pending"}},
 	{Key: "page:admin.allsubmissions", Path: "/admin/all-submissions", Label: "所有稿件", Requires: []string{"GET /api/admin/submissions/all"}},
+	{Key: "page:admin.comments", Path: "/admin/comments", Label: "评论管理", Requires: []string{"GET /api/admin/comments"}},
 	{Key: "page:admin.tags", Path: "/admin/tags", Label: "标签管理", Requires: []string{"GET /api/admin/tags/pending"}},
 	{Key: "page:admin.songs", Path: "/admin/songs", Label: "点歌管理", Requires: []string{"GET /api/admin/songs"}},
 	{Key: "page:admin.polls", Path: "/admin/polls", Label: "投票管理", Requires: []string{"GET /api/admin/polls"}},

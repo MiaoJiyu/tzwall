@@ -51,8 +51,27 @@ func (h *ConfigHandler) Save(c *gin.Context) {
 	if len(changed) > 0 {
 		service.Audit(h.store.DB(), u.ID, "config.update", "system_config", "",
 			"更新配置 "+itoaJoin(changed))
+		// 维护模式：同步 nginx 标志文件与静态维护页（与前后端是否在线无关）
+		if hasAnyKey(changed, "maintenance_enabled", "maintenance_message") {
+			if err := service.SyncMaintenance(h.cfg, h.store); err != nil {
+				response.FailCode(c, errs.CodeInternal, "维护状态同步失败："+err.Error())
+				return
+			}
+		}
 	}
 	response.OK(c, gin.H{"changed": changed})
+}
+
+// hasAnyKey 判断变更键列表中是否包含指定键。
+func hasAnyKey(keys []string, targets ...string) bool {
+	for _, k := range keys {
+		for _, t := range targets {
+			if k == t {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // readOnlyItems 展示 .env 中的密钥配置状态（不回显任何内容）。

@@ -159,13 +159,15 @@ func IsQQMail(email string) bool {
 	return strings.EqualFold(strings.TrimSpace(email[at+1:]), "qq.com")
 }
 
-// ProfileReq 个人资料修改（头像/昵称/联系方式 + 公开主页设置）。
+// ProfileReq 个人资料修改（头像/昵称/联系方式 + 真实姓名/就读学校 + 公开主页设置）。
 type ProfileReq struct {
 	Nickname      string `json:"nickname"`
 	Avatar        string `json:"avatar"`
 	Wechat        string `json:"wechat"`
 	QQ            string `json:"qq"`
 	Phone         string `json:"phone"`
+	RealName      string `json:"real_name"` // 社交账号强制完善项（仅网页端）
+	School        string `json:"school"`    // 社交账号强制完善项（仅网页端）
 	ProfilePublic *bool  `json:"profile_public"`
 	PublicFields  string `json:"public_fields"`
 }
@@ -186,6 +188,20 @@ func (s *AuthService) UpdateProfile(user *model.User, req ProfileReq) error {
 			return err
 		}
 	}
+	// 真实姓名 / 就读学校：仅在传入非空时更新（避免空值覆盖已有资料）
+	realName := strings.TrimSpace(req.RealName)
+	school := strings.TrimSpace(req.School)
+	if realName != "" && (len([]rune(realName)) < 2 || len([]rune(realName)) > 32) {
+		return errs.New(errs.ErrValidation, fmt.Errorf("真实姓名长度需 2-32 字"))
+	}
+	if school != "" && (len([]rune(school)) < 2 || len([]rune(school)) > 64) {
+		return errs.New(errs.ErrValidation, fmt.Errorf("就读学校长度需 2-64 字"))
+	}
+	if s.words != nil {
+		if err := s.words.CheckContent(realName + " " + school); err != nil {
+			return err
+		}
+	}
 	// 公开字段白名单
 	allowed := map[string]bool{"wechat": true, "qq": true, "phone": true, "school": true, "real_name": true}
 	clean := make([]string, 0, 5)
@@ -202,6 +218,12 @@ func (s *AuthService) UpdateProfile(user *model.User, req ProfileReq) error {
 		"qq":            qq,
 		"phone":         phone,
 		"public_fields": strings.Join(clean, ","),
+	}
+	if realName != "" {
+		updates["real_name"] = realName
+	}
+	if school != "" {
+		updates["school"] = school
 	}
 	if req.ProfilePublic != nil {
 		updates["profile_public"] = *req.ProfilePublic

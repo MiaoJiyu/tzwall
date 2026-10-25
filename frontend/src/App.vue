@@ -6,6 +6,7 @@ import { useMetaStore } from '@/stores/meta'
 import { authApi } from '@/api'
 import WatermarkOverlay from '@/components/WatermarkOverlay.vue'
 import PunishmentGate from '@/components/PunishmentGate.vue'
+import ProfileCompleteGate from '@/components/ProfileCompleteGate.vue'
 
 const ui = useUiStore()
 const auth = useAuthStore()
@@ -45,5 +46,6 @@ watch(
 <template>
   <router-view v-if="ready" />
   <PunishmentGate />
+  <ProfileCompleteGate />
   <WatermarkOverlay />
 </template>

@@ -58,6 +58,7 @@ func (h *MetaHandler) Site(c *gin.Context) {
 		"footer_psba":        h.store.Get("footer_psba"),
 		"footer_custom":      h.store.Get("footer_custom"),
 		"agreement_required": h.store.Bool("agreement_required"),
+		"social_profile_required": h.store.Get("social_profile_required") != "false",
 		"features": gin.H{
 			"storage":    h.cfg.StorageConfigured,
 			"mailer":     h.cfg.MailerConfigured,

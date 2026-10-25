@@ -48,6 +48,8 @@ var ConfigItems = []ConfigItem{
 	{Key: "site_name", Group: GroupSite, Label: "站点名称", Type: TypeString, Default: "泰兴中学校园墙", Desc: "显示在标题栏与登录页"},
 	{Key: "site_url", Group: GroupSite, Label: "站点访问地址", Type: TypeString, Default: "", Desc: "用于生成邮件中的激活/重置链接，如 https://wall.example.com；留空则回退 http://localhost"},
 	{Key: "agreement_required", Group: GroupSite, Label: "强制确认协议", Type: TypeBool, Default: "true", Desc: "协议更新后强制已登录用户重新确认"},
+	{Key: "maintenance_enabled", Group: GroupOps, Label: "系统维护模式", Type: TypeBool, Default: "false", Desc: "开启后全站进入维护：nginx 直接返回维护页（前端/后端更新期间同样可见）；/api 与 /admin 仍可访问，便于管理员操作"},
+	{Key: "maintenance_message", Group: GroupOps, Label: "维护提示文案", Type: TypeText, Default: "站点正在更新维护，请稍后再来。", Desc: "维护页展示的说明文字；支持多行"},
 	{Key: "home_page_size", Group: GroupSite, Label: "首页每页投稿数", Type: TypeInt, Default: "10", Min: 1, Max: 50, Desc: "首页投稿列表每页显示数量；保存后即时生效"},
 
 	// 注册与登录
@@ -68,6 +70,7 @@ var ConfigItems = []ConfigItem{
 	{Key: "wechat_web_secret", Group: GroupAccount, Label: "微信网页应用 AppSecret", Type: TypeSecret, Default: "", Desc: "微信网页应用 AppSecret；加密存储，留空表示不修改"},
 	{Key: "wechat_web_redirect_uri", Group: GroupAccount, Label: "微信网页回调地址", Type: TypeString, Default: "", Desc: "微信网页授权回调地址，需与微信开放平台配置一致；留空则用站点地址 + /api/auth/wechat/web/callback"},
 	{Key: "social_auto_create", Group: GroupAccount, Label: "社交登录自动建号（QQ/网页微信）", Type: TypeBool, Default: "true", Desc: "开启后，QQ/网页微信首次登录自动创建账号；小程序微信首次登录始终要求填写用户名与密码"},
+	{Key: "social_profile_required", Group: GroupAccount, Label: "社交账号强制完善资料", Type: TypeBool, Default: "true", Desc: "开启后，通过微信/QQ 注册或登录的账号在网页端必须填写真实姓名与就读学校；仅网页端生效，不影响小程序"},
 	{Key: "miniprogram_name", Group: GroupAccount, Label: "小程序名称", Type: TypeString, Default: "泰兴中学校园墙", Desc: "展示在微信小程序码弹窗中"},
 	{Key: "miniprogram_login_qrcode", Group: GroupAccount, Label: "登录小程序码图片地址", Type: TypeString, Default: "", Desc: "点击「微信登录/注册」时弹窗展示的小程序码图片 URL"},
 	{Key: "miniprogram_login_desc", Group: GroupAccount, Label: "登录说明文案", Type: TypeText, Default: "请使用微信扫描小程序码，在小程序内完成登录/注册。", Desc: "登录弹窗中的说明文字"},

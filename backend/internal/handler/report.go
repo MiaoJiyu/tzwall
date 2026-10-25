@@ -56,7 +56,11 @@ func (h *ReportHandler) TargetDetail(c *gin.Context) {
 		response.FailCode(c, code, serr.Error())
 		return
 	}
-	comments, _ := h.commentSvc.List(subID, true)
+	viewerID := uint(0)
+	if actor != nil {
+		viewerID = actor.ID
+	}
+	comments, _ := h.commentSvc.List(subID, viewerID, true)
 	response.OK(c, gin.H{
 		"target_type":      r.TargetType,
 		"submission":       submissionView(sub, actor, 0),
