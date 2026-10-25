@@ -134,6 +134,7 @@ type Comment struct {
 	Avatar   string     `gorm:"-" json:"avatar,omitempty"`
 	Title    string     `gorm:"-" json:"title,omitempty"` // 作者称号（展示用）
 	MyLiked  bool       `gorm:"-" json:"my_liked"`        // 当前查看者是否已点赞该评论
+	Blocked  bool       `gorm:"-" json:"blocked"`         // 机审明确拦截（对普通用户隐藏正文）
 }
 
 // Reaction 点赞/点踩。同一用户对同一目标唯一态度。

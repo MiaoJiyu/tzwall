@@ -49,8 +49,9 @@ async function onLike() {
           <span>{{ node.deleted ? (auth.isAdmin ? node.username : '匿名用户') : node.username }}</span>
           <TitleBadge v-if="!node.deleted" :title="node.title" />
         </div>
-        <!-- 已删除：管理员见原文（标注已删除），普通用户仅见占位文案 -->
-        <div v-if="!node.deleted" class="mt-0.5 text-sm leading-relaxed text-[var(--text-soft)]">{{ node.content }}</div>
+        <!-- 机审拦截：普通用户仅见占位；已删除：管理员见原文 -->
+        <div v-if="node.blocked && !auth.isAdmin" class="mt-0.5 text-sm italic text-[var(--text-soft)]">内容已被屏蔽</div>
+        <div v-else-if="!node.deleted" class="mt-0.5 text-sm leading-relaxed text-[var(--text-soft)]">{{ node.content }}</div>
         <div v-else-if="auth.isAdmin" class="mt-0.5 text-sm leading-relaxed text-[var(--text-soft)]">
           【已删除】{{ node.content }}
         </div>
@@ -60,7 +61,7 @@ async function onLike() {
           <span>{{ node.created_at }}</span>
           <!-- 点赞：任意评论/回复均可点赞；未登录点击引导登录；请求中禁用防抖 -->
           <button
-            v-if="!node.deleted"
+            v-if="!node.deleted && !node.blocked"
             class="inline-flex items-center gap-0.5 hover:text-[var(--grape)]"
             :class="[node.my_liked ? 'text-[var(--grape)]' : '', liking ? 'pointer-events-none opacity-60' : '']"
             @click="onLike"
@@ -68,7 +69,7 @@ async function onLike() {
             <ThumbsUp :size="13" :fill="node.my_liked ? 'currentColor' : 'none'" />
             {{ node.like_count || 0 }}
           </button>
-          <button v-if="!node.deleted && auth.isLoggedIn" class="inline-flex items-center gap-0.5 hover:text-[var(--grape)]" @click="emit('reply', node)">
+          <button v-if="!node.deleted && !node.blocked && auth.isLoggedIn" class="inline-flex items-center gap-0.5 hover:text-[var(--grape)]" @click="emit('reply', node)">
             <Reply :size="13" /> 回复
           </button>
           <button

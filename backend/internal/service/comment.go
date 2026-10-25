@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -72,8 +74,14 @@ func (s *CommentService) Create(user *model.User, submissionID, parentID uint, c
 		AuditStatus:  "pass",
 	}
 	if s.moderation.Configured() {
-		v, _ := s.moderation.SubmitText(nil, "comment", content)
-		if !v.Pass || v.Blocked {
+		// 必须传入真实 ctx（此前传 nil 导致 http 请求必然失败，所有评论被误判为 block）；
+		// 且只有「明确拦截(Blocked)」才标记 block，审核失败/异常不应误伤正常评论。
+		bizID := fmt.Sprintf("comment-%d", time.Now().UnixNano())
+		v, err := s.moderation.SubmitText(context.Background(), bizID, content)
+		if err != nil {
+			slog.Default().Warn("评论审核调用失败，按未拦截处理", "biz_id", bizID, "err", err.Error())
+		}
+		if v.Blocked {
 			cm.AuditStatus = "block"
 		} else {
 			cm.AuditStatus = "pass"
@@ -139,6 +147,11 @@ func (s *CommentService) List(submissionID, viewerID uint, isAdmin bool) ([]*mod
 		// 已删除评论对普通用户清空正文，避免接口泄露
 		if c.Deleted && !isAdmin {
 			c.Content = ""
+		}
+		// 机审明确拦截的评论：对普通用户隐藏正文并标记（保留节点，避免回复树断裂）
+		if c.AuditStatus == model.ModerationBlock && !isAdmin {
+			c.Content = ""
+			c.Blocked = true
 		}
 		byID[c.ID] = &c
 	}
