@@ -75,13 +75,19 @@ Page({
 
   // 统一字段并补全图片绝对地址
   normalize(item) {
-    const imgs = (item.images || []).map((im) => absUrl(im.url || im));
+    const imgs = toArray(item.images).map((im) => absUrl((im && im.url) || im));
     return Object.assign({}, item, {
       cover: imgs[0] || '',
       imgs: imgs,
       timeText: fmtTime(item.created_at),
       summary: item.content || '',
-      tags: item.tags || [],
+      // tags 后端返回 [{id,name}] 或单个 {id,name}；wxml 按字符串渲染，
+      // 统一取 name 展开为字符串数组，否则会渲染成 [object Object]
+      tags: toArray(item.tags)
+        .map((t) => (t && typeof t === 'object')
+          ? (t.name || t.title || t.value || t.tag || '')
+          : String(t))
+        .filter(Boolean),
       like_count: item.like_count || 0,
       comment_count: item.comment_count || 0,
       view_count: item.view_count || 0,
@@ -128,6 +134,12 @@ function fmtTime(d) {
   const p = (n) => (n < 10 ? '0' + n : '' + n);
   return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) +
     ' ' + p(t.getHours()) + ':' + p(t.getMinutes());
+}
+
+// 把可能是「数组 / 单个值 / 空」的字段统一成数组，避免对非数组调用 .map 报错
+function toArray(v) {
+  if (!v) return [];
+  return Array.isArray(v) ? v : [v];
 }
 
 // 把后端返回的 author 规整成字符串。

@@ -255,12 +255,8 @@ POST /api/auth/web-login/poll      {ticket} → {status, exchange_code}
 
 `/api/auth/wechat/bind/confirm` 为**公开接口**（后端 `perm.Public`），仅需 `bind_token + wx.login code`，无需小程序登录态，安全性由一次性令牌保证。与既有的 `pages/bind/bind`（手动 8 位授权码）并存，互为兜底。
 
-### 摄像头扫码（两页共用）
+### 关于小程序内扫码
 
-`pages/web-login/web-login` 与 `pages/bind/bind` 均提供「扫二维码自动填入」按钮，调用 `utils/scan.js` 封装的 `wx.scanCode`：
+小程序内调起摄像头扫码（`wx.scanCode`）的能力**已取消**：`pages/web-login/web-login` 与 `pages/bind/bind` 不再提供「扫二维码自动填入」按钮，对应 `scanCode` 方法及 `utils/scan.js` 引用已移除（`utils/scan.js` 文件保留但不再被引用）。
 
-- 小程序运行于微信环境，`wx.scanCode` 原生调起摄像头，无需 H5 的 `getUserMedia`，在微信内置浏览器与主流移动端均原生支持；
-- 扫描界面为微信原生全屏样式（无法自定义），风格一致性体现在按钮（复用 `.btn-plain`）与提示文案上；
-- 结果解析：`web-login` 页抽取 12 位票号（`extractTicket`），`bind` 页抽取 8 位绑定码（`extractBindCode`），同时兼容「纯码 / URL 带 `?code=` 参数 / 混杂文本中的码段」三种形式；识别到 `bind:<token>` 前缀则直接走扫码即绑；
-- 识别成功自动填入并触发对应流程；失败/无码给出友好 toast；**用户拒绝摄像头授权**时弹窗引导前往 `wx.openSetting` 开启（用户主动取消不提示）。
-- 摄像头权限为系统级，`wx.scanCode` 不依赖任何 request 合法域名，无需后端配置。
+绑定微信仍通过**微信原生扫码拉起**完成：网页生成 `scene=bind:<token>` 的小程序码，用户用微信扫一扫 → 微信按 `page` 拉起小程序确认页 → 自动 `bindWechat`。该流程不属于「小程序内扫码」，由 `app.js` 的 `routeScene` 与确认页 `onLoad` 处理。
