@@ -297,6 +297,7 @@ curl -X POST http://127.0.0.1/api/admin/images/sync-private \
 - `meta/site`、`meta/routes`、`meta/agreements` 增加 **ETag + 304** 与 `private, max-age` 短缓存，避免重复传输相同 JSON。
 - ⚠️ **按用户变化的响应禁止用 `max-age` 缓存**：`/api/announcements` 列表含 `confirmed` 字段（依用户与「确认」动作变化），若用 `max-age` 缓存，浏览器会在有效期内直接返回本地过期的 `confirmed:false`，导致「用户确认后刷新仍重复弹窗」。故该接口改用 `ETag(-1)` → `Cache-Control: private, no-cache`（每次校验，未变 304、确认后变 200），既修复弹窗 bug 又保留免重传优化。
 - **后台模块开关实时生效**：`/api/meta/site` 现下发 `song_enabled` / `poll_enabled`（缺省视为启用，仅显式 `false` 才关闭，与 `service.SongService.enabled()` 语义一致）。前端据此：① 导航菜单（桌面/移动）按开关隐藏「点歌」入口；② 路由守卫 `page:songs` 在开关关闭时把 `/songs` 重定向回首页，杜绝直接 URL 进入；③ `Songs.vue` 在开关中途变化时实时清空列表并显示「点歌功能已关闭」。`App.vue` 每 60s 重新拉取 `meta/site`（ETag 未变则为 304，开销极小），保证后台改动在约 1 分钟内对在线用户生效；后台通过配置接口保存会同步内存缓存，服务端下一次 `meta/site` 即反映新值。
+- **微信「小程序码自动绑定」开关 `wechat_mp_auto_bind`**（超级管理员可勾选，默认 `false`，位于账号配置分组）：开启后网页账号中心「绑定微信」生成携带绑定令牌的**动态小程序码**（`scene=bind:<token>`），用户扫码后小程序自动用 `wx.login` 完成绑定，无需手动输入授权码；关闭则沿用「静态小程序码 + 手动授权码」流程。需已配置微信小程序 AppID/Secret。后端 `POST /api/auth/wechat/bind-code` 据开关返回 `{auto, code, image_base64}`；小程序侧 `POST /api/auth/wechat/bind/confirm` 凭绑定令牌 + `wx.login` 的 `code` 完成绑定（与手动 `wechat/bind-code/confirm` 对称）。
 
 ### 4. COS 内网与盲水印修复
 - `COS_BASE_URL` 指向**同地域内网域名**（`cos-internal.ap-nanjing.myqcloud.com`）：免 COS 公网下行、更低延迟。

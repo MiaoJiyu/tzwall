@@ -4,6 +4,7 @@ defineProps<{
   title?: string
   name?: string
   qrcode?: string
+  imageBase64?: string // 动态生成的小程序码（自动绑定模式，优先展示）
   desc?: string
   code?: string
   codeHint?: string
@@ -22,7 +23,8 @@ const emit = defineEmits(['update:modelValue', 'refresh'])
     <div class="space-y-3 text-center">
       <p v-if="name" class="text-sm font-medium text-[var(--text)]">{{ name }}</p>
       <div class="mx-auto flex h-56 w-56 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-2">
-        <img v-if="qrcode" :src="qrcode" class="h-full w-full object-contain" alt="小程序码" />
+        <img v-if="imageBase64" :src="imageBase64" class="h-full w-full object-contain" alt="小程序码" />
+        <img v-else-if="qrcode" :src="qrcode" class="h-full w-full object-contain" alt="小程序码" />
         <span v-else class="px-3 text-xs leading-relaxed text-[var(--text-soft)]">管理员尚未配置小程序码</span>
       </div>
       <div v-if="code" class="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-4">

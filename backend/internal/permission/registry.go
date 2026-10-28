@@ -100,6 +100,7 @@ var Endpoints = []Endpoint{
 	epR("POST", "/api/auth/web-login/poll", GroupAuth, "网页登录轮询", true, 0, 300, 0, 0),
 	ep("POST", "/api/auth/wechat/bind-code", GroupAuth, "生成微信绑定码", false, model.RoleUser),
 	ep("POST", "/api/auth/wechat/bind-code/confirm", GroupAuth, "微信绑定码确认", true),
+	ep("POST", "/api/auth/wechat/bind/confirm", GroupAuth, "微信绑定令牌确认", true),
 	ep("POST", "/api/auth/me", GroupAuth, "当前用户", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/change-password", GroupAuth, "修改密码", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/profile", GroupAuth, "修改个人资料", false, model.RoleUser, model.RoleAdmin),

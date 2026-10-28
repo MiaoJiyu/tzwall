@@ -72,6 +72,7 @@ func (h *MetaHandler) Site(c *gin.Context) {
 					(h.store.SecretValue("wechat_mp_secret") != "" || h.cfg.WechatMPSecret != ""),
 				"wechat_web": (h.store.Get("wechat_web_appid") != "" || h.cfg.WechatWebAppID != "") &&
 					(h.store.SecretValue("wechat_web_secret") != "" || h.cfg.WechatWebSecret != ""),
+				"wechat_mp_auto_bind": h.store.Bool("wechat_mp_auto_bind"),
 				"qq": (h.store.Get("qq_oauth_appid") != "" || h.cfg.QQAppID != "") &&
 					(h.store.SecretValue("qq_oauth_secret") != "" || h.cfg.QQSecret != "") &&
 					(h.store.Get("qq_oauth_redirect_uri") != "" || h.cfg.QQRedirectURI != ""),

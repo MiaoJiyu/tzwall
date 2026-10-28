@@ -713,6 +713,114 @@ func (s *AuthService) BindByCode(bindCode, wxCode string) error {
 	return nil
 }
 
+// WechatBindMpCode 生成「绑定微信」专用小程序码（scene=bind:<token>）。
+// 复用与网页登录相同的 getwxacodeunlimit 机制：小程序扫码后确认页 onLoad 拿到 scene，
+// 识别 bind: 前缀即走「自动绑定」分支，无需用户手动输入授权码。
+func (s *AuthService) WechatBindMpCode(token string) ([]byte, error) {
+	c := s.resolveSocial()
+	if !c.WechatEnabled {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, nil)
+	}
+	scene := "bind:" + token
+	if len(scene) > 32 {
+		return nil, errs.New(errs.ErrValidation, fmt.Errorf("scene 过长"))
+	}
+	page := strings.TrimSpace(s.store.Get("miniprogram_confirm_page"))
+	if page == "" {
+		page = "pages/web-login/web-login"
+	}
+	at, err := s.wechatAccessToken()
+	if err != nil {
+		return nil, err
+	}
+	body, _ := json.Marshal(map[string]any{
+		"scene":      scene,
+		"page":       page,
+		"width":      280,
+		"check_path": false, // 页面未发布时也能生成，便于先联调
+	})
+	api := fmt.Sprintf("https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=%s", url.QueryEscape(at))
+	req, err := http.NewRequest(http.MethodPost, api, strings.NewReader(string(body)))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, err)
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return nil, errs.New(errs.CodeInternal, err)
+	}
+	var er struct {
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+	}
+	if json.Unmarshal(data, &er) == nil && er.ErrCode != 0 {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, fmt.Errorf("小程序码生成失败 errcode=%d %s", er.ErrCode, er.ErrMsg))
+	}
+	if len(data) < 100 {
+		return nil, errs.New(errs.ErrThirdPartyUnavailable, fmt.Errorf("小程序码生成失败"))
+	}
+	return data, nil
+}
+
+// WechatBindInit 发起微信绑定：依后台开关决定返回「自动绑定小程序码」还是「手动授权码」。
+//   - auto=true：生成绑定令牌并产出携带 scene=bind:<token> 的小程序码（image），小程序扫码后自动完成绑定；
+//   - auto=false：仅返回手动授权码 code（兜底，与历史流程一致）。
+//
+// 始终生成手动授权码作为兜底；若自动模式开启但小程序码生成失败，则自动降级为手动流程，保证绑定始终可用。
+func (s *AuthService) WechatBindInit(userID uint) (auto bool, code, token string, image []byte, err error) {
+	if _, err = s.userByID(userID); err != nil {
+		return
+	}
+	c := s.resolveSocial()
+	auto = s.store.Get("wechat_mp_auto_bind") == "true" && c.WechatEnabled
+	// 始终生成手动授权码（auto 不可用时的兜底）
+	code = strings.ToUpper(randState()[:8])
+	s.cache.Set("wx_bind_code:"+code, fmt.Sprintf("%d", userID), 10*time.Minute)
+	if !auto {
+		return
+	}
+	token = randState()[:16] // 16 hex
+	s.cache.Set("wx_bind_token:"+token, fmt.Sprintf("%d", userID), 10*time.Minute)
+	image, err = s.WechatBindMpCode(token)
+	if err != nil {
+		// 小程序码生成失败：降级为手动流程，不影响绑定可用性
+		auto = false
+		token = ""
+		image = nil
+		err = nil
+	}
+	return
+}
+
+// BindByToken 小程序内用绑定令牌把微信身份绑定到指定账号（凭 bind_token + wx.login 的 code）。
+// 与 BindByCode 对称：一个走手动授权码、一个走扫码自动令牌，均一次性有效（消费即删）。
+func (s *AuthService) BindByToken(bindToken, wxCode string) error {
+	key := "wx_bind_token:" + strings.TrimSpace(bindToken)
+	v, ok := s.cache.Get(key)
+	if !ok {
+		return errs.New(errs.ErrTokenInvalid, fmt.Errorf("绑定已失效，请刷新网页重新获取"))
+	}
+	if strings.TrimSpace(wxCode) == "" {
+		return errs.New(errs.ErrValidation, nil)
+	}
+	var uid uint
+	fmt.Sscanf(v, "%d", &uid)
+	sess, err := s.wechatCode2Session(wxCode)
+	if err != nil {
+		return err
+	}
+	if err := s.bindOpenid(uid, "wechat", sess.Openid, sess.Unionid, "", ""); err != nil {
+		return err
+	}
+	s.cache.Del(key)
+	return nil
+}
+
 // UnbindProvider 解绑第三方身份；若解绑后将无任何登录方式则拒绝（需先设密码或保留其他方式）。
 func (s *AuthService) UnbindProvider(userID uint, provider string) (string, error) {
 	u, err := s.userByID(userID)

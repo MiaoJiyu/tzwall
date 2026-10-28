@@ -24,6 +24,7 @@ var defaultConfigs = map[string]string{
 	"miniprogram_name":          "泰兴中学校园墙",
 	"miniprogram_login_desc":    "请使用微信扫描小程序码，在小程序内完成登录/注册。",
 	"miniprogram_bind_desc":     "请使用微信扫描小程序码，在小程序内完成微信绑定。",
+	"wechat_mp_auto_bind":       "false",
 	"comment_max_len":           "500",
 	"comment_max_depth":         "3",
 	"tag_max_count":             "5",

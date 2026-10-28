@@ -179,20 +179,44 @@ func (h *AuthHandler) WechatWebBindAuthorize(c *gin.Context) {
 	response.OK(c, gin.H{"url": u})
 }
 
-// WechatBindCode 生成微信绑定码（需登录；用于仅小程序场景下网页发起绑定）。
+// WechatBindCode 发起微信绑定（需登录）。依后台开关返回自动绑定小程序码或手动授权码。
+//   - auto=true：额外返回 image_base64（携带绑定令牌的小程序码），小程序扫码后自动完成绑定；
+//   - auto=false：仅返回 code（手动授权码），与历史流程一致。
 func (h *AuthHandler) WechatBindCode(c *gin.Context) {
 	u := middleware.CurrentUser(c)
 	if u == nil {
 		response.FailCode(c, errs.CodeUnauthorized, "")
 		return
 	}
-	code, err := h.svc.CreateBindCode(u.ID)
+	auto, code, _, image, err := h.svc.WechatBindInit(u.ID)
 	if err != nil {
 		c2, _ := errs.As(err)
 		response.FailCode(c, c2, err.Error())
 		return
 	}
-	response.OK(c, gin.H{"code": code, "expires_min": 10})
+	resp := gin.H{"auto": auto, "code": code, "expires_in": 600}
+	if auto && len(image) > 0 {
+		resp["image_base64"] = base64.StdEncoding.EncodeToString(image)
+	}
+	response.OK(c, resp)
+}
+
+// WechatBindConfirm 小程序侧用绑定令牌完成自动绑定（公开：凭 bind_token + wx.login 的 code）。
+func (h *AuthHandler) WechatBindConfirm(c *gin.Context) {
+	var req struct {
+		BindToken string `json:"bind_token"`
+		Code      string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	if err := h.svc.BindByToken(req.BindToken, req.Code); err != nil {
+		c2, _ := errs.As(err)
+		response.FailCode(c, c2, err.Error())
+		return
+	}
+	response.OK(c, nil)
 }
 
 // WechatBindByCode 小程序内用绑定码完成绑定（公开：凭绑定码 + wx.login 的 code）。

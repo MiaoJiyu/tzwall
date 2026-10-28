@@ -122,6 +122,7 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/auth/web-login/poll", perm.Public("POST /api/auth/web-login/poll"), authH.WebLoginPoll)
 	r.POST("/api/auth/wechat/bind-code", perm.Require("POST /api/auth/wechat/bind-code"), authH.WechatBindCode)
 	r.POST("/api/auth/wechat/bind-code/confirm", perm.Public("POST /api/auth/wechat/bind-code/confirm"), authH.WechatBindByCode)
+	r.POST("/api/auth/wechat/bind/confirm", perm.Public("POST /api/auth/wechat/bind/confirm"), authH.WechatBindConfirm)
 	r.GET("/api/auth/qq/url", perm.Public("GET /api/auth/qq/url"), authH.QQAuthorize)
 	r.GET("/api/auth/qq/callback", perm.Public("GET /api/auth/qq/callback"), authH.QQCallback)
 	r.POST("/api/auth/social/exchange", perm.Public("POST /api/auth/social/exchange"), authH.SocialExchange)

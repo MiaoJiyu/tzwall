@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -118,16 +118,23 @@ async function bindQQ() {
 const mp = computed(() => meta.site?.miniprogram || {})
 const mpBindDialog = ref(false)
 const bindCode = ref('')
+// 自动绑定：后台开启「小程序码自动绑定微信」后，接口返回携带绑定令牌的小程序码（image_base64），扫码即自动完成绑定
+const bindAuto = ref(false)
+const bindImage = ref('')
 async function bindWechat() {
   const canMp = !!meta.site?.features?.social?.wechat
   const canWeb = !!meta.site?.features?.social?.wechat_web
   if (canMp) {
-    // 绑定场景：弹「绑定小程序码」+ 授权码（与登录场景独立，绝不混用）
+    // 绑定场景：弹「绑定小程序码」。开启自动绑定则返回小程序码图片，否则返回手动授权码
     try {
       const r: any = await authApi.wechatBindCode()
+      bindAuto.value = !!r?.auto
       bindCode.value = r?.code || ''
+      bindImage.value = r?.image_base64 ? 'data:image/png;base64,' + r.image_base64 : ''
     } catch {
+      bindAuto.value = false
       bindCode.value = ''
+      bindImage.value = ''
     }
     mpBindDialog.value = true
     return
@@ -149,10 +156,26 @@ async function checkBindStatus() {
   if (auth.user?.wechat_bound) {
     ElMessage.success('微信绑定成功')
     mpBindDialog.value = false
+    bindAuto.value = false
+    bindImage.value = ''
   } else {
     ElMessage.info('尚未检测到绑定，请在小程序内输入授权码完成绑定后再点「刷新」')
   }
 }
+// 自动绑定模式下，对话框打开期间轮询绑定状态，扫码完成后自动关闭
+let bindPoll: any = null
+watch(
+  () => [mpBindDialog.value, bindAuto.value],
+  ([open, auto]) => {
+    if (open && auto) {
+      if (!bindPoll) bindPoll = setInterval(checkBindStatus, 3000)
+    } else if (bindPoll) {
+      clearInterval(bindPoll)
+      bindPoll = null
+    }
+  },
+  { immediate: true },
+)
 async function unbind(provider: 'wechat' | 'qq') {
   const name = provider === 'wechat' ? '微信' : 'QQ'
   try {
@@ -246,7 +269,17 @@ onMounted(async () => {
       </div>
 
       <!-- 绑定场景小程序码 + 授权码（与登录码独立） -->
-      <MiniProgramQrDialog v-model="mpBindDialog" title="绑定微信" :name="mp.name" :qrcode="mp.bind_qrcode" :desc="mp.bind_desc" :code="bindCode" :show-refresh="true" @refresh="checkBindStatus" />
+      <MiniProgramQrDialog
+        v-model="mpBindDialog"
+        title="绑定微信"
+        :name="mp.name"
+        :qrcode="mp.bind_qrcode"
+        :image-base64="bindImage"
+        :desc="bindAuto ? '微信扫描下方小程序码后将自动完成绑定，无需输入授权码。' : mp.bind_desc"
+        :code="bindAuto ? '' : bindCode"
+        :show-refresh="true"
+        @refresh="checkBindStatus"
+      />
 
       <div class="paper-card p-6">
         <h2 class="mb-1 font-semibold">公开个人主页</h2>
