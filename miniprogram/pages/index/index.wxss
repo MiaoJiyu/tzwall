@@ -1,0 +1,91 @@
+/* 首页：内容浏览样式 */
+
+/* 公告 */
+.notice-card { border-left: 6rpx solid var(--primary); }
+.notice-head { display: flex; align-items: center; gap: 10rpx; }
+.notice-pin {
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  background: #fbe9f0;
+  color: var(--primary);
+}
+.notice-title { font-size: 29rpx; font-weight: 600; color: #1a1a1a; flex: 1; }
+.notice-content {
+  display: block;
+  font-size: 26rpx;
+  color: #555;
+  line-height: 1.7;
+  margin-top: 12rpx;
+  word-break: break-all;
+}
+.notice-time { display: block; font-size: 22rpx; color: #bbb; margin-top: 12rpx; }
+
+/* 投稿卡片 */
+.sub-card { padding: 24rpx; }
+.sub-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; }
+.sub-title { font-size: 30rpx; font-weight: 600; color: #1a1a1a; flex: 1; line-height: 1.5; }
+.sub-time { font-size: 22rpx; color: #bbb; flex-shrink: 0; }
+
+.sub-content {
+  display: block;
+  font-size: 27rpx;
+  color: #444;
+  line-height: 1.75;
+  margin-top: 12rpx;
+  word-break: break-all;
+}
+/* 折叠时最多 3 行，避免长文占满屏幕 */
+.sub-content-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sub-more { display: block; font-size: 24rpx; color: var(--primary); margin-top: 8rpx; }
+
+.sub-imgs { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 16rpx; }
+.sub-img { width: 200rpx; height: 200rpx; border-radius: 12rpx; background: #eee; }
+
+.sub-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18rpx;
+  font-size: 23rpx;
+  color: #999;
+}
+.sub-author { color: #7a5a80; }
+.sub-counts { display: flex; gap: 20rpx; }
+.sub-count { font-size: 23rpx; color: #aaa; }
+
+.sub-tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 14rpx; }
+.sub-tag {
+  font-size: 21rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  background: #f5f0f6;
+  color: var(--primary);
+}
+/* 用户称号（author_title）：与昵称同行的小标签，无称号时不渲染 */
+.sub-badge {
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #8e44ad, #c0392b);
+  color: #fff;
+}
+
+/* 登录入口：底部次要样式 */
+.login-entry {
+  margin: 40rpx 8rpx 56rpx;
+  padding: 28rpx 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+}
+.login-hint { font-size: 23rpx; color: #999; text-align: center; line-height: 1.6; }
+.login-actions { display: flex; gap: 20rpx; }

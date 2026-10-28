@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="hero">
+    <text class="hero-title">绑定微信</text>
+    <text class="hero-sub">把当前微信绑定到已有账号</text>
+  </view>
+
+  <view class="section">
+    <view class="card">
+      <view class="form-row">
+        <text class="form-label">绑定码</text>
+        <input class="form-input" placeholder="请输入 8 位绑定码" maxlength="8"
+               value="{{bindCode}}" bindinput="onInput"/>
+      </view>
+    </view>
+    <view class="form-tip">
+      绑定码在网页端获取：登录网页 → 个人中心 → 绑定微信，有效期 10 分钟，仅可使用一次。
+    </view>
+    <button class="btn-plain" bindtap="scanCode">扫二维码自动填入</button>
+    <view class="form-tip">
+      也可扫描网页「绑定微信」处展示的二维码，自动识别并绑定，无需手动输入。
+    </view>
+  </view>
+
+  <button class="btn-primary" loading="{{submitting}}" bindtap="submit">确认绑定</button>
+</view>

@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="hero">
+    <text class="hero-title">网页授权确认</text>
+    <text class="hero-sub">扫码即可授权网页登录或绑定微信</text>
+  </view>
+
+  <view class="section">
+    <view class="card">
+      <view class="form-row">
+        <text class="form-label">票号</text>
+        <input class="form-input" placeholder="请输入网页显示的票号" maxlength="16"
+               value="{{ticket}}" bindinput="onInput"/>
+      </view>
+    </view>
+    <view class="form-tip">
+      在电脑或手机浏览器打开网页登录页，点「微信登录 → 小程序登录」，
+      输入其上显示的票号，即可让该浏览器自动登录。票号 5 分钟内有效，仅可使用一次。
+    </view>
+    <view class="form-tip">
+      在网页「个人中心 → 绑定微信」处扫描小程序码或二维码，可免输入自动绑定当前微信，令牌 10 分钟内有效、消费即失效。
+    </view>
+    <button class="btn-plain" bindtap="scanCode">扫二维码自动填入</button>
+    <view wx:if="{{status}}" class="form-tip form-status">{{status}}</view>
+  </view>
+
+  <button class="btn-primary" loading="{{submitting}}" bindtap="submit">{{status || '确认登录'}}</button>
+</view>

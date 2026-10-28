@@ -1,0 +1,72 @@
+<view class="page">
+  <view class="hero">
+    <text class="hero-title">MeshPoint小助手</text>
+    <text class="hero-sub">公告与投稿内容浏览，无需登录即可查看</text>
+  </view>
+
+  <!-- 公告：官方内容，免登录可读 -->
+  <view wx:if="{{announcements.length}}" class="section">
+    <view class="section-title">公告</view>
+    <view wx:for="{{announcements}}" wx:key="id" class="card notice-card">
+      <view class="notice-head">
+        <text wx:if="{{item.pinned}}" class="notice-pin">置顶</text>
+        <text class="notice-title">{{item.title}}</text>
+      </view>
+      <text class="notice-content">{{item.content}}</text>
+      <text wx:if="{{item.created_at}}" class="notice-time">{{item.created_at}}</text>
+    </view>
+  </view>
+
+  <!-- 投稿列表：免登录可浏览 -->
+  <view class="section">
+    <view class="section-title">最新投稿</view>
+
+    <view wx:if="{{errorMsg}}" class="error-card">
+      <text class="error-text">{{errorMsg}}</text>
+      <button class="btn-mini" bindtap="onPullDownRefresh">重试</button>
+    </view>
+
+    <view wx:elif="{{!loading && !items.length}}" class="empty">暂无内容</view>
+
+    <view wx:for="{{items}}" wx:key="id" class="card sub-card" bindtap="toggleItem" data-id="{{item.id}}">
+      <view class="sub-head">
+        <text class="sub-title">{{item.title || '无标题'}}</text>
+        <text class="sub-time">{{item.timeText}}</text>
+      </view>
+
+      <text class="sub-content {{item.expanded ? '' : 'sub-content-clamp'}}">{{item.summary}}</text>
+      <text wx:if="{{!item.expanded && item.summary.length > 80}}" class="sub-more">展开全文</text>
+
+      <view wx:if="{{item.cover}}" class="sub-imgs">
+        <image wx:for="{{item.imgs}}" wx:for-item="img" wx:key="*this"
+               class="sub-img" src="{{img}}" mode="aspectFill" catchtap="previewImage"
+               data-urls="{{item.imgs}}" data-current="{{img}}"/>
+      </view>
+
+      <view class="sub-meta">
+        <text class="sub-author">{{item.author || '匿名用户'}}</text>
+        <text wx:if="{{item.authorTitle}}" class="sub-badge">{{item.authorTitle}}</text>
+        <view class="sub-counts">
+          <text class="sub-count">赞 {{item.like_count}}</text>
+          <text class="sub-count">评论 {{item.comment_count}}</text>
+          <text class="sub-count">浏览 {{item.view_count}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{item.tags.length}}" class="sub-tags">
+        <text wx:for="{{item.tags}}" wx:for-item="tg" wx:key="*this" class="sub-tag">{{tg}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading">加载中…</view>
+  </view>
+
+  <!-- 登录入口：置于底部，次要样式，完全由用户主动选择 -->
+  <view class="login-entry">
+    <text class="login-hint">浏览无需登录。如需查看个人账号信息，可选择</text>
+    <view class="login-actions">
+      <button wx:if="{{!user}}" class="btn-mini" bindtap="goLogin">登录</button>
+      <button wx:else class="btn-mini" bindtap="goProfile">查看我的账号</button>
+    </view>
+  </view>
+</view>
