@@ -77,6 +77,10 @@ router.beforeEach((to) => {
   if (page && !meta.can(page)) {
     return { path: '/403' }
   }
+  // 模块开关：后台关闭「点歌」时，前台完全隐藏入口并阻止直接通过 URL 进入
+  if (page === 'page:songs' && meta.site?.song_enabled === false) {
+    return { path: '/' }
+  }
   return true
 })
 

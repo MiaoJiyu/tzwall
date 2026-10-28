@@ -3,6 +3,7 @@ Description=Taixing Campus Wall Daily Backup
 
 [Service]
 Type=oneshot
-User=tzwall
+# 以 root 运行：.env 权限为 600(root)，需 root 读取其中的 DB 密码/端口等环境变量
+User=root
 EnvironmentFile=/opt/tzwall/backend/.env
 ExecStart=/opt/tzwall/deploy/backup.sh

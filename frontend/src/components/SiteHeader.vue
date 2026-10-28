@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Plus, Home, FileText, User as UserIcon, Shield, ShieldAlert, LogOut, Menu, Music, BarChart3, Ticket, MessageSquare } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
@@ -11,6 +11,8 @@ import ThemeToggle from './ThemeToggle.vue'
 const auth = useAuthStore()
 const meta = useMetaStore()
 const router = useRouter()
+// 后台「启用点歌」开关；关闭时完全隐藏前台所有点歌入口
+const songEnabled = computed(() => meta.site?.song_enabled !== false)
 const keyword = ref('')
 const mobileOpen = ref(false)
 
@@ -98,7 +100,7 @@ async function logout() {
 
       <nav class="ml-auto hidden items-center gap-1 md:flex">
         <button class="nav-btn" @click="go('/')"><Home :size="16" /> 首页</button>
-        <button class="nav-btn" @click="go('/songs')"><Music :size="16" /> 点歌</button>
+        <button v-if="songEnabled" class="nav-btn" @click="go('/songs')"><Music :size="16" /> 点歌</button>
         <button class="nav-btn" @click="go('/polls')"><BarChart3 :size="16" /> 投票</button>
         <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/publish')"><Plus :size="16" /> 发布</button>
         <button v-if="auth.isLoggedIn" class="nav-btn" @click="go('/my')"><FileText :size="16" /> 我的</button>
@@ -143,7 +145,7 @@ async function logout() {
       />
       <div class="flex flex-col gap-1">
         <button class="nav-btn justify-start" @click="go('/')"><Home :size="16" /> 首页</button>
-        <button class="nav-btn justify-start" @click="go('/songs')"><Music :size="16" /> 点歌</button>
+        <button v-if="songEnabled" class="nav-btn justify-start" @click="go('/songs')"><Music :size="16" /> 点歌</button>
         <button class="nav-btn justify-start" @click="go('/polls')"><BarChart3 :size="16" /> 投票</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/publish')"><Plus :size="16" /> 发布投稿</button>
         <button v-if="auth.isLoggedIn" class="nav-btn justify-start" @click="go('/my')"><FileText :size="16" /> 我的投稿</button>

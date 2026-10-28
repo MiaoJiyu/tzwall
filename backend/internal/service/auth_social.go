@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,18 +228,41 @@ func (s *AuthService) WechatRegister(ticket, username, password string) (string,
 
 // ───────────────────────── QQ OAuth（网站应用） ─────────────────────────
 
+// jsonInt 兼容 JSON 中同时以「数字」或「字符串」形式出现的整型字段。
+// QQ 开放平台常把 expires_in / error_code 以字符串（如 "7776000"）返回，
+// 直接反序列化到 int 会报 "cannot unmarshal string into ... of type int"。
+type jsonInt int
+
+func (j *jsonInt) UnmarshalJSON(b []byte) error {
+	s := strings.TrimSpace(string(b))
+	s = strings.Trim(s, `"`)
+	if s == "" || s == "null" {
+		*j = 0
+		return nil
+	}
+	// 兼容 "7776000.0" 这类浮点字符串
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return err
+	}
+	*j = jsonInt(f)
+	return nil
+}
+
+func (j jsonInt) Int() int { return int(j) }
+
 type qqTokenResp struct {
 	AccessToken  string `json:"access_token"`
-	ExpiresIn    int    `json:"expires_in"`
+	ExpiresIn    jsonInt `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
-	ErrorCode    int    `json:"error_code"`
+	ErrorCode    jsonInt `json:"error_code"`
 	ErrorMsg     string `json:"error_description"`
 }
 
 type qqMeResp struct {
-	ClientID string `json:"client_id"`
-	Openid   string `json:"openid"`
-	ErrorCode int   `json:"error_code"`
+	ClientID  string `json:"client_id"`
+	Openid    string `json:"openid"`
+	ErrorCode jsonInt `json:"error_code"`
 	ErrorMsg  string `json:"error"`
 }
 

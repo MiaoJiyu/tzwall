@@ -88,9 +88,9 @@ var Endpoints = []Endpoint{
 	ep("POST", "/api/auth/social/exchange", GroupAuth, "社交登录兑换", true),
 	ep("POST", "/api/auth/bind", GroupAuth, "绑定第三方账号", false, model.RoleUser),
 	ep("POST", "/api/auth/unbind", GroupAuth, "解绑第三方账号", false, model.RoleUser),
-	ep("GET", "/api/auth/qq/bind/url", GroupAuth, "发起 QQ 绑定", false, model.RoleUser),
+	ep("GET", "/api/auth/qq/bind/url", GroupAuth, "发起 QQ 绑定", false, model.RoleUser, model.RoleAdmin),
 	ep("GET", "/api/auth/wechat/web/url", GroupAuth, "微信网页登录授权", true),
-	ep("GET", "/api/auth/wechat/web/bind/url", GroupAuth, "发起微信网页绑定", false, model.RoleUser),
+	ep("GET", "/api/auth/wechat/web/bind/url", GroupAuth, "发起微信网页绑定", false, model.RoleUser, model.RoleAdmin),
 	ep("GET", "/api/auth/wechat/web/callback", GroupAuth, "微信网页授权回调", true),
 	epR("POST", "/api/auth/wechat/register", GroupAuth, "微信小程序注册完成", true, 0, 0, 20, 0),
 	// 网页登录（小程序扫码即登）：速率统一在矩阵配置

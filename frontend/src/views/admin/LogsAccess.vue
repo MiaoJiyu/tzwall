@@ -30,6 +30,14 @@ function open(row: any) {
   drawer.value = true
 }
 
+// 上行字节格式化（公网上行计费依据）
+function fmtBytes(n: number) {
+  if (!n || n < 0) return '—'
+  if (n < 1024) return n + ' B'
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'
+  return (n / 1048576).toFixed(2) + ' MB'
+}
+
 function parseHeaders(s: string) {
   try {
     return JSON.parse(s)
@@ -78,6 +86,7 @@ onMounted(load)
               <th class="px-4 py-2">路径</th>
               <th class="px-4 py-2">状态</th>
               <th class="px-4 py-2">耗时</th>
+              <th class="px-4 py-2">上行</th>
               <th class="px-4 py-2">用户</th>
               <th class="px-4 py-2">IP</th>
               <th class="px-4 py-2"></th>
@@ -88,8 +97,12 @@ onMounted(load)
               <td class="whitespace-nowrap px-4 py-2 text-xs text-[var(--text-soft)]">{{ r.created_at?.replace('T', ' ').slice(0, 19) }}</td>
               <td class="px-4 py-2"><span class="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-xs">{{ r.method }}</span></td>
               <td class="max-w-[280px] truncate px-4 py-2 font-mono text-xs">{{ r.path }}</td>
-              <td class="px-4 py-2"><span class="rounded-full px-2 py-0.5 text-xs" :class="statusClass(r.status_code)">{{ r.status_code }}</span></td>
+              <td class="px-4 py-2">
+                <span class="rounded-full px-2 py-0.5 text-xs" :class="statusClass(r.status_code)">{{ r.status_code }}</span>
+                <span v-if="r.truncated" class="ml-1 rounded-full bg-[var(--danger)]/15 px-2 py-0.5 text-xs text-[var(--danger)]" title="客户端中途断开（如压测超时被截断）；该请求仍被计数">截断</span>
+              </td>
               <td class="px-4 py-2 text-xs text-[var(--text-soft)]">{{ r.duration_ms }} ms</td>
+              <td class="px-4 py-2 text-xs text-[var(--text-soft)]" :title="'缓存来源：' + (r.cache_status || '—')">{{ fmtBytes(r.bytes_sent) }}</td>
               <td class="px-4 py-2 text-xs">{{ r.username || (r.user_id ? '#' + r.user_id : '游客') }}</td>
               <td class="px-4 py-2 font-mono text-xs text-[var(--text-soft)]">{{ r.ip }}</td>
               <td class="px-4 py-2"><button class="text-xs text-[var(--grape)] hover:underline" @click="open(r)">详情</button></td>
@@ -117,10 +130,16 @@ onMounted(load)
           <p class="font-mono text-xs break-all">{{ detail.method }} {{ detail.path }}{{ detail.query ? '?' + detail.query : '' }}</p>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <div><span class="text-[var(--text-soft)]">状态码</span> {{ detail.status_code }}</div>
+          <div><span class="text-[var(--text-soft)]">状态码</span> {{ detail.status_code }}
+            <span v-if="detail.truncated" class="ml-1 rounded-full bg-[var(--danger)]/15 px-2 py-0.5 text-[var(--danger)]">客户端超时截断</span>
+          </div>
           <div><span class="text-[var(--text-soft)]">耗时</span> {{ detail.duration_ms }} ms</div>
           <div><span class="text-[var(--text-soft)]">IP</span> {{ detail.ip }}</div>
           <div><span class="text-[var(--text-soft)]">用户</span> {{ detail.username || (detail.user_id ? '#' + detail.user_id : '游客') }}</div>
+          <div><span class="text-[var(--text-soft)]">上行字节</span> {{ fmtBytes(detail.bytes_sent) }}</div>
+          <div><span class="text-[var(--text-soft)]">缓存来源</span> {{ detail.cache_status || '—' }}</div>
+          <div><span class="text-[var(--text-soft)]">资源</span> {{ detail.resource || '—' }}</div>
+          <div><span class="text-[var(--text-soft)]">盲水印</span> {{ detail.watermark ? '是' : '否' }}</div>
           <div class="col-span-2"><span class="text-[var(--text-soft)]">请求体摘要</span> {{ detail.body_digest || '—' }}</div>
         </div>
         <div>

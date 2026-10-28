@@ -193,8 +193,10 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/conversations/:id/messages", perm.Require("POST /api/conversations/:id/messages"), chatH.Send)
 	r.POST("/api/conversations/:id/read", perm.Require("POST /api/conversations/:id/read"), chatH.Read)
 
-	// 公告（公开列表 + 确认）
-	r.GET("/api/announcements", perm.Public("GET /api/announcements"), middleware.ETag(60), annH.List)
+	// 公告（公开列表 + 确认）。
+	// 列表含按用户变化的 confirmed 字段（会因「确认」动作改变），故用 no-cache（ETag(-1)）：
+	// 浏览器每次都校验，未变 304、确认后变 200，避免确认后刷新仍读到过期 confirmed:false 而重复弹窗。
+	r.GET("/api/announcements", perm.Public("GET /api/announcements"), middleware.ETag(-1), annH.List)
 	r.POST("/api/announcements/:id/confirm", perm.Require("POST /api/announcements/:id/confirm"), annH.Confirm)
 	// 公告管理（管理员）
 	r.GET("/api/admin/announcements", perm.Require("GET /api/admin/announcements"), annH.AdminList)

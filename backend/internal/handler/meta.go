@@ -59,6 +59,10 @@ func (h *MetaHandler) Site(c *gin.Context) {
 		"footer_custom":      h.store.Get("footer_custom"),
 		"agreement_required": h.store.Bool("agreement_required"),
 		"social_profile_required": h.store.Get("social_profile_required") != "false",
+		// 模块开关：前台据此完全隐藏入口并阻止直接访问（后台关闭点歌/投票时生效）。
+		// 与 service 层 enabled() 保持一致：配置缺失视为启用（true），仅显式 "false" 才关闭。
+		"song_enabled": h.store.Get("song_enabled") != "false",
+		"poll_enabled": h.store.Get("poll_enabled") != "false",
 		"features": gin.H{
 			"storage":    h.cfg.StorageConfigured,
 			"mailer":     h.cfg.MailerConfigured,

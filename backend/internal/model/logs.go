@@ -24,7 +24,10 @@ type AccessLog struct {
 	CacheStatus string    `gorm:"size:32" json:"-"`
 	Resource    string    `gorm:"size:80" json:"-"`
 	Watermark   bool      `json:"-"`
-	CreatedAt   time.Time `gorm:"index" json:"-"`
+	// Truncated 客户端中途断连（如压测超时截断）而 handler 尚未结束的记录标记：
+	// 保证这类请求同样计入访问统计，可据此识别"超时截断式"刷流量行为。
+	Truncated  bool      `json:"-"`
+	CreatedAt  time.Time `gorm:"index" json:"-"`
 }
 
 // AuditLog 审计日志：配置修改、处罚、审核、权限变更等。

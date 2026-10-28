@@ -38,6 +38,12 @@ type AccessLogView struct {
 	Headers     string    `json:"headers"`
 	BodyPreview string    `json:"body_preview"`
 	BodyDigest  string    `json:"body_digest"`
+	// 流量与溯源字段
+	BytesSent   int64  `json:"bytes_sent"`
+	CacheStatus string `json:"cache_status"`
+	Resource    string `json:"resource"`
+	Watermark   bool   `json:"watermark"`
+	Truncated   bool   `json:"truncated"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -101,6 +107,11 @@ func (h *LogHandler) AccessLogs(c *gin.Context) {
 			Headers:     items[i].Headers,
 			BodyPreview: items[i].BodyPreview,
 			BodyDigest:  items[i].BodyDigest,
+			BytesSent:   items[i].BytesSent,
+			CacheStatus: items[i].CacheStatus,
+			Resource:    items[i].Resource,
+			Watermark:   items[i].Watermark,
+			Truncated:   items[i].Truncated,
 			CreatedAt:   items[i].CreatedAt,
 		})
 	}

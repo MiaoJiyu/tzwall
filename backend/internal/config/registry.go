@@ -96,6 +96,7 @@ var ConfigItems = []ConfigItem{
 	{Key: "watermark_cache_seconds", Group: GroupMedia, Label: "图片缓存时长（秒）", Type: TypeInt, Default: "600", Min: 0, Max: 86400, Desc: "图片代理的 Cache-Control 时长；0 表示不缓存"},
 	{Key: "image_link_ttl_seconds", Group: GroupMedia, Label: "图片链接有效期（秒）", Type: TypeInt, Default: "600", Min: 30, Max: 86400, Desc: "后端签发的图片链接有效期，过期需刷新页面重新获取"},
 	{Key: "image_blind_watermark", Group: GroupMedia, Label: "图片盲水印", Type: TypeBool, Default: "true", Desc: "开启后每张图片经数据万象写入盲水印（用户名+IP+请求时间），需启用 COS 图片处理"},
+	{Key: "image_process_max_width", Group: GroupMedia, Label: "图片展示最大宽度", Type: TypeInt, Default: "1280", Min: 0, Max: 4096, Desc: "对外展示的图片先缩放到该宽度再嵌盲水印；0 表示不限制。降低 CI 耗时与上行流量"},
 	{Key: "image_cache_ttl_seconds", Group: GroupMedia, Label: "图片 CDN 缓存（秒）", Type: TypeInt, Default: "604800", Min: 0, Max: 31536000, Desc: "对外图片的 CDN 缓存时长；0 表示不缓存；内容不可变建议较长"},
 	{Key: "video_cache_ttl_seconds", Group: GroupMedia, Label: "视频 CDN 缓存（秒）", Type: TypeInt, Default: "86400", Min: 0, Max: 31536000, Desc: "对外视频的 CDN 缓存时长；0 表示不缓存；内容不可变建议 1 天以上"},
 

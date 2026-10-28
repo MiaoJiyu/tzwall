@@ -146,6 +146,7 @@ openssl rand -hex 32
 | `watermark_cache_seconds` | 代理图片服务端缓存秒数（**开启盲水印时不使用共享缓存**） | 600 |
 | `image_link_ttl_seconds` | 图片签名链接有效期（秒），过期需刷新页面重新签发 | 600 |
 | `image_blind_watermark` | 图片盲水印开关（用户名/ID+IP+时间，经数据万象写入） | true |
+| `image_process_max_width` | 展示图片先缩放到该宽度再嵌盲水印（0=不限制） | 1280 |
 
 ### 审核与 AI
 `ai_enabled`、`ai_base_url`、`ai_api_key`（加密）、`ai_model`、`ai_prompt`、`ai_timeout_seconds`、`ai_daily_limit`
@@ -283,12 +284,19 @@ curl -X POST http://127.0.0.1/api/admin/images/sync-private \
 - **Nginx 访问日志**（`log_format tzwall`，定义于 `conf.d/tzwall-traffic-log.conf`）：含 `cache=`（缓存状态）、`$body_bytes_sent`（响应字节）、`rt/urt`（耗时）、`rid`（请求 ID）。
 - **后端 `access_logs`** 新增字段：`bytes_sent`（响应字节，计费依据）、`cache_status`（`mem`=后端字节缓存命中 / `origin`=回源）、`resource`（如 `image:27`）、`watermark`（是否走盲水印）。
 - 双向溯源：`rid` 关联 nginx 与后端日志；`resource` + `watermark` 关联到具体媒体与水印批次。
+- **超时截断请求计数**：访问日志在**请求入口即建档**（`StatusCode=0` 表示处理中），handler 结束时补全状态/字节/耗时；
+  客户端中途断开（如压测超时被截断）而 handler 未结束的请求，由看门狗标记 `truncated=true`。
+  因此**被截断的请求同样计入 IP 访问统计与限流计数**，可在后台「访问日志」按「截断」标记排查刷流量行为。
+  - 通道满时改为同步落库，不再丢记录；
+  - 图片取流限时 30s，避免 COS 卡住或客户端已断连时无限占用连接/协程。
 
 ### 3. 静态资源瘦身
 - `favicon.svg`（原 4.0MB，VTracer 逐像素追踪产物）→ `favicon.png` 256×256 调色板（**19.9KB**，降幅 99.5%）；原文件备份在 `backup/`。
 - `dist` 体积 8.7MB → 4.9MB。
 - 未读角标轮询：15s → 30s，且**页面隐藏时暂停、回前台立即刷新**。
-- `meta/site`、`meta/routes`、`meta/agreements`、`announcements` 增加 **ETag + 304** 与 `private, max-age` 短缓存，避免重复传输相同 JSON。
+- `meta/site`、`meta/routes`、`meta/agreements` 增加 **ETag + 304** 与 `private, max-age` 短缓存，避免重复传输相同 JSON。
+- ⚠️ **按用户变化的响应禁止用 `max-age` 缓存**：`/api/announcements` 列表含 `confirmed` 字段（依用户与「确认」动作变化），若用 `max-age` 缓存，浏览器会在有效期内直接返回本地过期的 `confirmed:false`，导致「用户确认后刷新仍重复弹窗」。故该接口改用 `ETag(-1)` → `Cache-Control: private, no-cache`（每次校验，未变 304、确认后变 200），既修复弹窗 bug 又保留免重传优化。
+- **后台模块开关实时生效**：`/api/meta/site` 现下发 `song_enabled` / `poll_enabled`（缺省视为启用，仅显式 `false` 才关闭，与 `service.SongService.enabled()` 语义一致）。前端据此：① 导航菜单（桌面/移动）按开关隐藏「点歌」入口；② 路由守卫 `page:songs` 在开关关闭时把 `/songs` 重定向回首页，杜绝直接 URL 进入；③ `Songs.vue` 在开关中途变化时实时清空列表并显示「点歌功能已关闭」。`App.vue` 每 60s 重新拉取 `meta/site`（ETag 未变则为 304，开销极小），保证后台改动在约 1 分钟内对在线用户生效；后台通过配置接口保存会同步内存缓存，服务端下一次 `meta/site` 即反映新值。
 
 ### 4. COS 内网与盲水印修复
 - `COS_BASE_URL` 指向**同地域内网域名**（`cos-internal.ap-nanjing.myqcloud.com`）：免 COS 公网下行、更低延迟。

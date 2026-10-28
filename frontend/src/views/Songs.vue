@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { Music, Send, Clock, User as UserIcon, Play, Ban } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { songApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { useMetaStore } from '@/stores/meta'
 
 const auth = useAuthStore()
+const meta = useMetaStore()
+// 后台「启用点歌」开关关闭时，本页兜底显示为已关闭（路由守卫已阻止进入，此处防止开关中途变化的已开页面）
+const songEnabled = computed(() => meta.site?.song_enabled !== false)
 const items = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -78,8 +82,21 @@ function canSubmit() {
 }
 
 onMounted(() => {
-  load()
-  loadQuota()
+  if (songEnabled.value) {
+    load()
+    loadQuota()
+  }
+})
+
+// 后台中途切换「启用点歌」时，实时同步本页内容
+watch(songEnabled, (on) => {
+  if (on) {
+    load()
+    loadQuota()
+  } else {
+    items.value = []
+    total.value = 0
+  }
 })
 </script>
 
@@ -92,11 +109,16 @@ onMounted(() => {
         </h1>
         <p class="mt-1 text-sm text-[var(--text-soft)]">点一首喜欢的歌，让它响彻校园的午后。</p>
       </div>
-      <span v-if="auth.isLoggedIn && quota" class="rounded-full bg-grape-50 px-3 py-1 text-xs text-[var(--grape)]">{{ remainText() }}</span>
+      <span v-if="auth.isLoggedIn && quota && songEnabled" class="rounded-full bg-grape-50 px-3 py-1 text-xs text-[var(--grape)]">{{ remainText() }}</span>
+    </div>
+
+    <!-- 后台已关闭点歌：兜底提示（路由守卫已阻止进入，此处防开关中途变化） -->
+    <div v-if="!songEnabled" class="paper-card p-10 text-center text-[var(--text-soft)]">
+      <Ban :size="28" class="mx-auto mb-2 opacity-40" /> 点歌功能已关闭
     </div>
 
     <!-- 点歌表单 -->
-    <div v-if="auth.isLoggedIn" class="paper-card mb-6 p-5">
+    <div v-if="auth.isLoggedIn && songEnabled" class="paper-card mb-6 p-5">
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="relative">
           <Music :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)]" />
@@ -120,12 +142,15 @@ onMounted(() => {
       </div>
       <p v-if="quota && !canSubmit()" class="mt-2 text-xs text-warn">本周点歌次数已用完，下周再来吧～</p>
     </div>
+    <div v-else-if="!songEnabled" class="paper-card mb-6 p-4 text-center text-sm text-[var(--text-soft)]">
+      点歌功能已关闭
+    </div>
     <div v-else class="paper-card mb-6 p-4 text-center text-sm text-[var(--text-soft)]">
       请<router-link to="/login" class="mx-1 text-[var(--grape)]">登录</router-link>后点歌
     </div>
 
     <!-- 点歌列表 -->
-    <div v-if="items.length" class="space-y-3">
+    <div v-if="items.length && songEnabled" class="space-y-3">
       <div v-for="s in items" :key="s.id" class="paper-card flex items-start gap-3 p-4">
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-grape-50 text-[var(--grape)]">
           <Music :size="18" />
@@ -146,7 +171,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <div v-else-if="!loading" class="paper-card p-10 text-center text-[var(--text-soft)]">
+    <div v-else-if="!loading && songEnabled" class="paper-card p-10 text-center text-[var(--text-soft)]">
       <Ban :size="28" class="mx-auto mb-2 opacity-40" /> 还没有人点歌，来点一首吧～
     </div>
 

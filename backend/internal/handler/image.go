@@ -190,18 +190,23 @@ func (h *ImageHandler) Proxy(c *gin.Context) {
 		}
 	}
 
+	// 取流限时 30s：避免 COS 卡住或客户端已断连时无限占用连接与协程；
+	// 超时/取消后 handler 会尽快结束，访问日志得以补全（计入统计）。
+	fetchCtx, cancelFetch := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancelFetch()
+
 	var r io.ReadCloser
 	var err error
 	if useWatermark {
 		rule := h.blindWatermarkRule(c, viewerUID)
-		r, err = h.storage.ProcessedGet(c.Request.Context(), im.StorageKey, rule)
+		r, err = h.storage.ProcessedGet(fetchCtx, im.StorageKey, rule)
 		if err != nil {
 			// 图片处理不可用时回退原图，保证仍可显示
 			slog.Default().Warn("盲水印处理失败，回退原图", "key", im.StorageKey, "err", err.Error())
-			r, err = h.storage.Get(c.Request.Context(), im.StorageKey)
+			r, err = h.storage.Get(fetchCtx, im.StorageKey)
 		}
 	} else {
-		r, err = h.storage.Get(c.Request.Context(), im.StorageKey)
+		r, err = h.storage.Get(fetchCtx, im.StorageKey)
 	}
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectUnavailable) {
@@ -300,7 +305,13 @@ func (h *ImageHandler) blindWatermarkRule(c *gin.Context, viewerUID uint) string
 	}
 	text := "u~" + user + "~i~" + compactIP(middleware.ClientIP(c)) + "~t~" + strconv.FormatInt(time.Now().Unix(), 36)
 	b64 := base64.URLEncoding.EncodeToString([]byte(text))
-	return "watermark/3/type/3/version/3.0/text/" + b64
+	rule := "watermark/3/type/3/version/3.0/text/" + b64
+	// 展示尺寸限制：大图先缩放再嵌水印——显著降低 CI 处理耗时与每次请求的公网上行
+	// （0 表示不限制；水印嵌在最终尺寸上，识别不受影响）
+	if w := h.store.Int("image_process_max_width", 1280); w > 0 {
+		rule = fmt.Sprintf("imageMogr2/thumbnail/%dx|%s", w, rule)
+	}
+	return rule
 }
 
 // usernameByID 按用户 ID 取用户名（带短缓存，降低图片代理的数据库压力）。

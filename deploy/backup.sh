@@ -10,8 +10,8 @@ KEEP=7
 mkdir -p "$BACKUP_DIR"
 TS="$(date +%Y%m%d_%H%M%S)"
 
-# 备份数据库
-PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h "${DB_HOST:-127.0.0.1}" "$DB_NAME" | gzip > "$BACKUP_DIR/db_$TS.sql.gz"
+# 备份数据库（显式指定端口，PG 实际监听 5433 而非默认 5432）
+PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h "${DB_HOST:-127.0.0.1}" -p "${DB_PORT:-5432}" "$DB_NAME" | gzip > "$BACKUP_DIR/db_$TS.sql.gz"
 
 # 可选：本地图片目录纳入备份（默认不备份原图，见系统配置）
 if [ "${BACKUP_IMAGES:-0}" = "1" ]; then
