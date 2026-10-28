@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"tzwall/backend/internal/model"
 	"tzwall/backend/internal/pkg/errs"
@@ -263,7 +264,10 @@ func (s *AdminService) AllSubmissions(page, pageSize int, status, keyword string
 	q.Count(&total)
 	var subs []model.Submission
 	q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").
-		Offset((page - 1) * pageSize).Limit(pageSize).Order("created_at DESC").Find(&subs)
+		Offset((page - 1) * pageSize).Limit(pageSize).
+		Clauses(clause.OrderBy{
+			Expression: gorm.Expr("CASE WHEN pinned AND (pin_expires_at IS NULL OR pin_expires_at > ?) THEN 0 ELSE 1 END, pin_order ASC, pinned_at DESC, created_at DESC", time.Now()),
+		}).Find(&subs)
 	return subs, total, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"tzwall/backend/internal/ai"
 	"tzwall/backend/internal/cache"
@@ -433,6 +434,11 @@ func (s *SubmissionService) List(p ListParams) ([]model.Submission, int64, error
 	q.Count(&total)
 
 	q = q.Preload("Tags").Preload("Images", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("Videos", "audit_status <> ? AND is_private = ?", model.ModerationBlock, false).Preload("User").Offset((p.Page - 1) * p.PageSize).Limit(p.PageSize)
+	// 置顶优先：生效中的置顶帖（pinned 且未过期）始终排在最前，再按 pin_order 升序、pinned_at 倒序，最后按常规排序。
+	// 过期置顶（pin_expires_at 已过）自动降为普通帖，无需后台定时任务清理。
+	q = q.Clauses(clause.OrderBy{
+		Expression: gorm.Expr("CASE WHEN submissions.pinned AND (submissions.pin_expires_at IS NULL OR submissions.pin_expires_at > ?) THEN 0 ELSE 1 END, submissions.pin_order ASC, submissions.pinned_at DESC", time.Now()),
+	})
 	if p.Sort == "hot" {
 		gravity := s.store.Int("hot_decay_gravity", 2)
 		q = q.Order(fmt.Sprintf(
@@ -445,6 +451,46 @@ func (s *SubmissionService) List(p ListParams) ([]model.Submission, int64, error
 		return nil, 0, errs.New(errs.CodeInternal, err)
 	}
 	return subs, total, nil
+}
+
+// PinSubmission 置顶指定投稿（仅管理员）。order 越小越靠前；expiresAt 非 nil 时设置有效期，
+// 过期后查询层会将其视为普通帖（自动取消置顶，无需后台定时清理）。
+func (s *SubmissionService) PinSubmission(u *model.User, id uint, order int, expiresAt *time.Time) error {
+	if u == nil || !u.IsAdmin() {
+		return errs.New(errs.CodeForbidden, fmt.Errorf("无权操作"))
+	}
+	var sub model.Submission
+	if err := s.db.First(&sub, id).Error; err != nil {
+		return errs.New(errs.CodeNotFound, fmt.Errorf("投稿不存在"))
+	}
+	pinnedAt := time.Now()
+	if sub.PinnedAt != nil {
+		pinnedAt = *sub.PinnedAt
+	}
+	if err := s.db.Model(&model.Submission{}).Where("id = ?", id).Updates(map[string]any{
+		"pinned":         true,
+		"pin_order":      order,
+		"pinned_at":      pinnedAt,
+		"pin_expires_at": expiresAt,
+	}).Error; err != nil {
+		return errs.New(errs.CodeInternal, err)
+	}
+	return nil
+}
+
+// UnpinSubmission 取消置顶（仅管理员）。
+func (s *SubmissionService) UnpinSubmission(u *model.User, id uint) error {
+	if u == nil || !u.IsAdmin() {
+		return errs.New(errs.CodeForbidden, fmt.Errorf("无权操作"))
+	}
+	if err := s.db.Model(&model.Submission{}).Where("id = ?", id).Updates(map[string]any{
+		"pinned":         false,
+		"pin_order":      0,
+		"pin_expires_at": nil,
+	}).Error; err != nil {
+		return errs.New(errs.CodeInternal, err)
+	}
+	return nil
 }
 
 // ListMine 我的投稿（含所有状态）。

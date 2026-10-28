@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -131,6 +132,15 @@ func submissionView(sub *model.Submission, viewer *model.User, myAttitude int) g
 	// AI 审核评论（通过/拒绝原因），仅管理员在后台可见
 	if viewer != nil && viewer.IsAdmin() {
 		v["audit_comment"] = sub.AuditComment
+	}
+	// 生效置顶标识：仅当 pinned 且未过期才视为置顶（与查询排序逻辑一致），过期自动取消。
+	isPinned := sub.Pinned && (sub.PinExpiresAt == nil || sub.PinExpiresAt.After(time.Now()))
+	v["pinned"] = isPinned
+	if isPinned {
+		v["pin_order"] = sub.PinOrder
+		if sub.PinExpiresAt != nil {
+			v["pin_expires_at"] = sub.PinExpiresAt
+		}
 	}
 	return v
 }

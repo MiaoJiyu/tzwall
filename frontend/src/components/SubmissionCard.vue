@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Heart, MessageCircle, Eye, Image as ImageIcon, Video as VideoIcon, Ban, Gavel } from 'lucide-vue-next'
-import { ElMessage } from 'element-plus'
+import { Heart, MessageCircle, Eye, Image as ImageIcon, Video as VideoIcon, Ban, Gavel, Pin } from 'lucide-vue-next'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { interactionApi } from '@/api'
 import TitleBadge from '@/components/TitleBadge.vue'
+import PinDialog from '@/components/PinDialog.vue'
 
 const props = defineProps<{ item: any }>()
-const emit = defineEmits(['penalty', 'takedown'])
+const emit = defineEmits(['penalty', 'takedown', 'pin', 'unpin'])
 const auth = useAuthStore()
 const router = useRouter()
 const statusText: Record<string, string> = { pending: '审核中', approved: '已通过', rejected: '未通过', need_edit: '需修改', withdrawn: '已撤回' }
@@ -56,10 +57,27 @@ async function toggleLike() {
     liking.value = false
   }
 }
+
+// 置顶：管理员打开对话框设置排序权重/有效期，确认后由父组件调用接口。
+const pinDialogVisible = ref(false)
+function openPin() {
+  pinDialogVisible.value = true
+}
+function onPinConfirm(payload: { order: number; expiresAt: string }) {
+  emit('pin', { id: props.item.id, ...payload })
+}
+function unpin() {
+  ElMessageBox.confirm('确定取消置顶该投稿？', '取消置顶', { type: 'warning' })
+    .then(() => emit('unpin', props.item.id))
+    .catch(() => {})
+}
 </script>
 
 <template>
-  <article class="paper-card cursor-pointer p-5 animate-fadeup" @click="open">
+  <article class="paper-card cursor-pointer p-5 animate-fadeup" :class="item.pinned ? 'ring-2 ring-[var(--grape)]' : ''" @click="open">
+    <div v-if="item.pinned" class="mb-2 inline-flex items-center gap-1 rounded-full bg-[var(--grape)] px-2 py-0.5 text-xs font-medium text-white">
+      <Pin :size="12" /> 置顶
+    </div>
     <div class="flex items-center gap-2 text-xs text-[var(--text-soft)]">
       <span class="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-medium text-[var(--grape)]">{{ item.author }}</span>
       <TitleBadge v-if="!item.anonymous" :title="item.author_title" />
@@ -103,6 +121,12 @@ async function toggleLike() {
 
     <!-- 管理员快捷操作（对每条投稿） -->
     <div v-if="auth.isAdmin" class="mt-3 flex flex-wrap gap-2 border-t border-[var(--border)] pt-2" @click.stop>
+      <button v-if="!item.pinned" class="inline-flex items-center gap-1 rounded-full bg-[var(--grape)] px-3 py-1 text-xs text-white" @click.stop="openPin">
+        <Pin :size="12" /> 置顶
+      </button>
+      <button v-else class="inline-flex items-center gap-1 rounded-full border border-[var(--grape)] px-3 py-1 text-xs text-[var(--grape)]" @click.stop="unpin">
+        <Pin :size="12" /> 取消置顶
+      </button>
       <button class="inline-flex items-center gap-1 rounded-full bg-[var(--danger)] px-3 py-1 text-xs text-white" @click.stop="emit('takedown', item)">
         <Ban :size="12" /> 快捷撤下
       </button>
@@ -110,5 +134,6 @@ async function toggleLike() {
         <Gavel :size="12" /> 处罚作者
       </button>
     </div>
+    <PinDialog v-model="pinDialogVisible" :pinned="item.pinned" @confirm="onPinConfirm" />
   </article>
 </template>

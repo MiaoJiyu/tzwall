@@ -75,6 +75,13 @@ type Submission struct {
 	PendingTitle   string `gorm:"size:200" json:"-"`
 	PendingContent string `gorm:"type:text" json:"-"`
 
+	// 置顶：管理员可将投稿固定在列表顶部。仅 pinned=true 且未过期者视为“生效置顶”，
+	// 排序与展示均据此判定，到期自动取消（查询层把过期项视为普通帖）。
+	Pinned       bool       `gorm:"index" json:"pinned"`
+	PinOrder     int        `gorm:"index" json:"pin_order"`
+	PinnedAt     *time.Time `json:"pinned_at,omitempty"`
+	PinExpiresAt *time.Time `json:"pin_expires_at,omitempty"`
+
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

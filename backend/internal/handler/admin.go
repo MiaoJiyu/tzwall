@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -385,6 +386,64 @@ func (h *AdminHandler) ReviewSubmission(c *gin.Context) {
 		return
 	}
 	if err := h.subSvc.Review(u, uint(id), status, req.Note); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
+// PinSubmission 置顶投稿（管理员）。可附带 order（排序，越小越靠前）与可选有效期 expires_at。
+func (h *AdminHandler) PinSubmission(c *gin.Context) {
+	u := adminUser(c)
+	if u == nil {
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.FailCode(c, errs.ErrValidation, "无效的投稿 ID")
+		return
+	}
+	var req struct {
+		Order     int    `json:"order"`
+		ExpiresAt string `json:"expires_at"` // 可选；格式 "2006-01-02 15:04:05" 或 RFC3339
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.FailCode(c, errs.ErrValidation, "")
+		return
+	}
+	var expiresAt *time.Time
+	if req.ExpiresAt != "" {
+		t, perr := time.Parse("2006-01-02 15:04:05", req.ExpiresAt)
+		if perr != nil {
+			t, perr = time.Parse(time.RFC3339, req.ExpiresAt)
+		}
+		if perr != nil {
+			response.FailCode(c, errs.ErrValidation, "有效期格式错误，应为 2006-01-02 15:04:05")
+			return
+		}
+		expiresAt = &t
+	}
+	if err := h.subSvc.PinSubmission(u, uint(id), req.Order, expiresAt); err != nil {
+		code, _ := errs.As(err)
+		response.FailCode(c, code, err.Error())
+		return
+	}
+	response.OK(c, nil)
+}
+
+// UnpinSubmission 取消置顶（管理员）。
+func (h *AdminHandler) UnpinSubmission(c *gin.Context) {
+	u := adminUser(c)
+	if u == nil {
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.FailCode(c, errs.ErrValidation, "无效的投稿 ID")
+		return
+	}
+	if err := h.subSvc.UnpinSubmission(u, uint(id)); err != nil {
 		code, _ := errs.As(err)
 		response.FailCode(c, code, err.Error())
 		return

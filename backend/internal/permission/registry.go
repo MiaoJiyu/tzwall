@@ -228,6 +228,8 @@ var Endpoints = []Endpoint{
 	ep("POST", "/api/admin/images/sync-private", GroupMedia, "同步图片私有ACL", false, model.RoleAdmin),
 	ep("POST", "/api/admin/submissions/:id/review", GroupContent, "审核投稿", false, model.RoleAdmin),
 	ep("POST", "/api/admin/submissions/:id/restore", GroupContent, "恢复投稿", false, model.RoleAdmin),
+	ep("POST", "/api/admin/submissions/:id/pin", GroupContent, "置顶投稿", false, model.RoleAdmin),
+	ep("POST", "/api/admin/submissions/:id/unpin", GroupContent, "取消置顶投稿", false, model.RoleAdmin),
 
 	// 点歌
 	ep("GET", "/api/songs", GroupContent, "点歌列表", true),

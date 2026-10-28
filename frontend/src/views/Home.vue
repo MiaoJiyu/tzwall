@@ -116,6 +116,29 @@ async function onTakedown(item: any) {
   await load()
   await loadHot()
 }
+async function onPin(payload: { id: number; order: number; expiresAt: string }) {
+  try {
+    await adminApi.pinSubmission(payload.id, {
+      order: payload.order,
+      expires_at: payload.expiresAt || undefined,
+    })
+    ElMessage.success('已置顶')
+    await load()
+    await loadHot()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '置顶失败')
+  }
+}
+async function onUnpin(id: number) {
+  try {
+    await adminApi.unpinSubmission(id)
+    ElMessage.success('已取消置顶')
+    await load()
+    await loadHot()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '操作失败')
+  }
+}
 
 onMounted(() => {
   load()
@@ -136,6 +159,9 @@ onMounted(() => {
       </button>
       <button v-else class="mt-5 rounded-full border border-white/60 px-5 py-2.5 text-sm font-semibold" @click="router.push('/login')">登录后发布</button>
     </section>
+
+    <!-- 关联投票：全宽展示，为独立卡片框，不嵌套在单个投稿卡片内 -->
+    <div class="mb-8"><PollWidget /></div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
       <!-- 列表 -->
@@ -163,10 +189,8 @@ onMounted(() => {
 
         <div class="lg:hidden"><AnnouncementBoard :items="announcements" /></div>
 
-        <PollWidget />
-
         <div v-if="items.length" class="space-y-4">
-          <SubmissionCard v-for="it in items" :key="it.id" :item="it" @penalty="onPenalty" @takedown="onTakedown" />
+          <SubmissionCard v-for="it in items" :key="it.id" :item="it" @penalty="onPenalty" @takedown="onTakedown" @pin="onPin" @unpin="onUnpin" />
         </div>
         <div v-else class="paper-card p-10 text-center text-[var(--text-soft)]">暂无投稿，快来发布第一条吧～</div>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Heart, ThumbsDown, Share2, MessageCircle, MessageSquare, Send, Flag, Ban, Gavel, Pencil, Undo2, BarChart3, Check } from 'lucide-vue-next'
+import { Heart, ThumbsDown, Share2, MessageCircle, MessageSquare, Send, Flag, Ban, Gavel, Pencil, Undo2, BarChart3, Check, Pin, X } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { submissionApi, commentApi, interactionApi, punishmentApi, adminApi, chatApi, pollApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +10,7 @@ import TitleBadge from '@/components/TitleBadge.vue'
 import ContentMarkdown from '@/components/ContentMarkdown.vue'
 import PollCard from '@/components/PollCard.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
+import PinDialog from '@/components/PinDialog.vue'
 import PenaltyDialog from '@/components/PenaltyDialog.vue'
 
 const route = useRoute()
@@ -206,6 +207,29 @@ async function takeDownSubmission() {
   ElMessage.success('稿件已撤下')
   await load()
 }
+// 置顶：管理员打开对话框设置排序权重/有效期，确认后调用接口。
+const pinDialogVisible = ref(false)
+function openPin() {
+  pinDialogVisible.value = true
+}
+async function onPinConfirm(payload: { order: number; expiresAt: string }) {
+  try {
+    await adminApi.pinSubmission(id, { order: payload.order, expires_at: payload.expiresAt || undefined })
+    ElMessage.success('已置顶')
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '置顶失败')
+  }
+}
+async function unpinSubmission() {
+  try {
+    await adminApi.unpinSubmission(id)
+    ElMessage.success('已取消置顶')
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '操作失败')
+  }
+}
 function share() {
   navigator.clipboard?.writeText(location.href)
   ElMessage.success('链接已复制，去分享吧')
@@ -239,7 +263,9 @@ onMounted(() => {
         <span v-if="detail.under_review" class="rounded bg-warn/20 px-2 py-0.5 text-warn">审核中（当前展示原版）</span>
         <span v-else-if="detail.status !== 'approved'" class="rounded bg-warn/20 px-2 py-0.5 text-warn">状态：{{ detail.status }}</span>
       </div>
-      <h1 class="mt-2 font-serif-sc text-2xl font-bold">{{ detail.title }}</h1>
+      <h1 class="mt-2 font-serif-sc text-2xl font-bold">
+        <span v-if="detail.pinned" class="mr-2 inline-flex items-center gap-1 rounded-full bg-[var(--grape)] px-2 py-0.5 align-middle text-base font-medium text-white"><Pin :size="14" /> 置顶</span>{{ detail.title }}
+      </h1>
 
       <div v-if="detail.content" class="mt-4"><ContentMarkdown :source="detail.content" /></div>
 
@@ -255,53 +281,47 @@ onMounted(() => {
         <span v-for="t in detail.tags" :key="t.id" class="rounded-full bg-grape-50 px-2 py-0.5 text-xs text-[var(--grape)]">#{{ t.name }}</span>
       </div>
 
-      <!-- 关联投票 -->
-      <div v-if="linkedPolls.length" class="mt-6">
-        <div class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[var(--grape)]"><BarChart3 :size="16" /> 关联投票</div>
-        <div class="space-y-2">
-          <PollCard v-for="p in linkedPolls" :key="p.id + '-' + ((p.my_option_ids || []).join(','))" :poll="p" @voted="loadPolls" />
-        </div>
-      </div>
-      <div v-if="canManagePolls()" class="mt-3">
-        <button class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-4 py-1.5 text-sm hover:text-[var(--grape)]" @click="openPollPicker">
-          <BarChart3 :size="14" /> 关联投票（最多 {{ pollMax }} 个）
-        </button>
-      </div>
-
       <!-- 关联投票选择 -->
-      <el-dialog v-model="pollDialog" title="关联投票" width="460px">
-        <p class="mb-2 text-xs text-[var(--text-soft)]">
-          最多可关联 <b>{{ pollMax }}</b> 个，当前已选 <b>{{ pollSel.length }}</b> 个。只能关联自己发起、未截止且未被其他投稿占用的投票。
-        </p>
-        <div v-if="!myPolls.length" class="py-6 text-center text-sm text-[var(--text-soft)]">你还没有发起过投票，可前往「投票」页发起。</div>
-        <div v-else class="max-h-[50vh] space-y-2 overflow-y-auto">
-          <button
-            v-for="p in myPolls"
-            :key="p.id"
-            @click="togglePoll(p)"
-            :disabled="!pollLinkable(p)"
-            class="flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition"
-            :class="[pollSel.includes(p.id) ? 'border-[var(--grape)] bg-grape-50' : 'border-[var(--border)]', !pollLinkable(p) ? 'cursor-not-allowed opacity-50' : 'hover:border-[var(--grape)]/50']"
-          >
-            <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-white" :class="pollSel.includes(p.id) ? 'border-[var(--grape)] bg-[var(--grape)]' : 'border-[var(--border)]'">
-              <Check v-if="pollSel.includes(p.id)" :size="10" />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">{{ p.title }}</span>
-              <span class="text-xs text-[var(--text-soft)]">
-                {{ p.expired ? '已截止' : (p.total_votes + ' 票') }}
-                <template v-if="p.linked_submission_id && p.linked_submission_id !== id"> · 已关联其他投稿</template>
-              </span>
-            </span>
-          </button>
-        </div>
-        <template #footer>
-          <div class="flex justify-end gap-2">
-            <button class="rounded-full px-4 py-1.5 text-sm" @click="pollDialog = false">取消</button>
-            <button class="btn-grape rounded-full px-4 py-1.5 text-sm text-white" @click="savePolls">保存</button>
+      <!-- Teleport 到 body：完全脱离投稿卡片等带 transform 的祖先，始终以视口为基准居中 -->
+      <Teleport to="body">
+        <div v-if="pollDialog" class="fixed inset-0 z-[9997] flex items-center justify-center bg-black/55 px-4">
+          <div class="paper-card w-full max-w-md animate-fadeup p-6">
+            <div class="flex items-center justify-between">
+              <h3 class="font-serif-sc text-lg font-bold">关联投票</h3>
+              <button class="text-[var(--text-soft)] transition hover:text-[var(--text)]" @click="pollDialog = false"><X :size="18" /></button>
+            </div>
+            <p class="mt-2 text-xs text-[var(--text-soft)]">
+              最多可关联 <b>{{ pollMax }}</b> 个，当前已选 <b>{{ pollSel.length }}</b> 个。只能关联自己发起、未截止且未被其他投稿占用的投票。
+            </p>
+            <div v-if="!myPolls.length" class="py-6 text-center text-sm text-[var(--text-soft)]">你还没有发起过投票，可前往「投票」页发起。</div>
+            <div v-else class="mt-3 max-h-[50vh] space-y-2 overflow-y-auto">
+              <button
+                v-for="p in myPolls"
+                :key="p.id"
+                @click="togglePoll(p)"
+                :disabled="!pollLinkable(p)"
+                class="flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition"
+                :class="[pollSel.includes(p.id) ? 'border-[var(--grape)] bg-grape-50' : 'border-[var(--border)]', !pollLinkable(p) ? 'cursor-not-allowed opacity-50' : 'hover:border-[var(--grape)]/50']"
+              >
+                <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-white" :class="pollSel.includes(p.id) ? 'border-[var(--grape)] bg-[var(--grape)]' : 'border-[var(--border)]'">
+                  <Check v-if="pollSel.includes(p.id)" :size="10" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ p.title }}</span>
+                  <span class="text-xs text-[var(--text-soft)]">
+                    {{ p.expired ? '已截止' : (p.total_votes + ' 票') }}
+                    <template v-if="p.linked_submission_id && p.linked_submission_id !== id"> · 已关联其他投稿</template>
+                  </span>
+                </span>
+              </button>
+            </div>
+            <div class="mt-5 flex justify-end gap-2">
+              <button class="rounded-full border border-[var(--border)] px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]" @click="pollDialog = false">取消</button>
+              <button class="btn-grape rounded-full px-5 py-2 text-sm text-white" @click="savePolls">保存</button>
+            </div>
           </div>
-        </template>
-      </el-dialog>
+        </div>
+      </Teleport>
 
       <div v-if="detail.under_review && detail.pending_content" class="mt-4 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm">
         <p class="mb-1 text-xs font-medium text-warn">您的新版本正在审核（通过后展示，当前上方为原版）：</p>
@@ -336,11 +356,7 @@ onMounted(() => {
         <span class="flex items-center gap-1.5 text-[var(--text-soft)]"><MessageCircle :size="18" /> {{ detail.comment_count }}</span>
       </div>
 
-      <!-- 管理员快捷操作（针对本投稿） -->
-      <div v-if="auth.isAdmin" class="mt-3 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
-        <button class="inline-flex items-center gap-1 rounded-full bg-[var(--danger)] px-3 py-1 text-sm text-white" @click="takeDownSubmission"><Ban :size="14" /> 快捷撤下稿件</button>
-        <button v-if="detail.user_id" class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-sm hover:text-[var(--danger)]" @click="openPenalty(detail.user_id, detail.anonymous ? '匿名用户' : detail.author)"><Gavel :size="14" /> 处罚作者</button>
-      </div>
+      <PinDialog v-model="pinDialogVisible" :pinned="!!detail?.pinned" @confirm="onPinConfirm" />
 
       <!-- 作者操作：修改 / 撤回（依据后端 can_edit / can_withdraw） -->
       <div v-if="detail.can_edit || detail.can_withdraw" class="mt-3 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
@@ -352,6 +368,27 @@ onMounted(() => {
         </button>
       </div>
     </article>
+
+    <!-- 管理员快捷操作：与“快捷撤下稿件 / 处罚作者”同款框，置于投稿卡片之外 -->
+    <section v-if="auth.isAdmin" class="mt-4 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
+      <button v-if="!detail.pinned" class="inline-flex items-center gap-1 rounded-full bg-[var(--grape)] px-3 py-1 text-sm text-white" @click="openPin"><Pin :size="14" /> 置顶</button>
+      <button v-else class="inline-flex items-center gap-1 rounded-full border border-[var(--grape)] px-3 py-1 text-sm text-[var(--grape)]" @click="unpinSubmission"><Pin :size="14" /> 取消置顶</button>
+      <button class="inline-flex items-center gap-1 rounded-full bg-[var(--danger)] px-3 py-1 text-sm text-white" @click="takeDownSubmission"><Ban :size="14" /> 快捷撤下稿件</button>
+      <button v-if="detail.user_id" class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-sm hover:text-[var(--danger)]" @click="openPenalty(detail.user_id, detail.anonymous ? '匿名用户' : detail.author)"><Gavel :size="14" /> 处罚作者</button>
+    </section>
+
+    <!-- 关联投票：独立于投稿卡片，框样式与管理操作一致 -->
+    <section v-if="linkedPolls.length || canManagePolls()" class="mt-4 border-t border-[var(--border)] pt-3">
+      <div class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[var(--grape)]"><BarChart3 :size="16" /> 关联投票</div>
+      <div v-if="linkedPolls.length" class="space-y-2">
+        <PollCard v-for="p in linkedPolls" :key="p.id + '-' + ((p.my_option_ids || []).join(','))" :poll="p" @voted="loadPolls" />
+      </div>
+      <div v-if="canManagePolls()" class="mt-3">
+        <button class="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-4 py-1.5 text-sm hover:text-[var(--grape)]" @click="openPollPicker">
+          <BarChart3 :size="14" /> 关联投票（最多 {{ pollMax }} 个）
+        </button>
+      </div>
+    </section>
 
     <!-- 评论 -->
     <section class="mt-6">

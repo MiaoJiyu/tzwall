@@ -238,6 +238,8 @@ func SetupRouter(d Deps) *gin.Engine {
 	r.POST("/api/admin/tickets/:id/status", perm.Require("POST /api/admin/tickets/:id/status"), ticketH.SetStatus)
 	r.POST("/api/admin/submissions/:id/review", perm.Require("POST /api/admin/submissions/:id/review"), adminH.ReviewSubmission)
 	r.POST("/api/admin/submissions/:id/restore", perm.Require("POST /api/admin/submissions/:id/restore"), adminH.RestoreSubmission)
+	r.POST("/api/admin/submissions/:id/pin", perm.Require("POST /api/admin/submissions/:id/pin"), adminH.PinSubmission)
+	r.POST("/api/admin/submissions/:id/unpin", perm.Require("POST /api/admin/submissions/:id/unpin"), adminH.UnpinSubmission)
 	r.POST("/api/admin/images/sync-private", perm.Require("POST /api/admin/images/sync-private"), imgH.SyncPrivate)
 
 	// 处罚（私有）
