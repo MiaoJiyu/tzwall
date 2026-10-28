@@ -160,35 +160,71 @@ func IsQQMail(email string) bool {
 }
 
 // ProfileReq 个人资料修改（头像/昵称/联系方式 + 真实姓名/就读学校 + 公开主页设置）。
+// 头像/昵称/联系方式/公开字段列表使用指针：仅当请求「实际提供」该字段才更新，
+// 避免局部更新（例如只保存公开设置开关）时把其它已填写的资料覆盖为空串。
 type ProfileReq struct {
-	Nickname      string `json:"nickname"`
-	Avatar        string `json:"avatar"`
-	Wechat        string `json:"wechat"`
-	QQ            string `json:"qq"`
-	Phone         string `json:"phone"`
-	RealName      string `json:"real_name"` // 社交账号强制完善项（仅网页端）
-	School        string `json:"school"`    // 社交账号强制完善项（仅网页端）
-	ProfilePublic *bool  `json:"profile_public"`
-	PublicFields  string `json:"public_fields"`
+	Nickname      *string `json:"nickname"`
+	Avatar        *string `json:"avatar"`
+	Wechat        *string `json:"wechat"`
+	QQ            *string `json:"qq"`
+	Phone         *string `json:"phone"`
+	RealName      string  `json:"real_name"` // 社交账号强制完善项（仅网页端）；空值不更新，避免误清空
+	School        string  `json:"school"`    // 社交账号强制完善项（仅网页端）；空值不更新，避免误清空
+	ProfilePublic *bool   `json:"profile_public"`
+	PublicFields  *string `json:"public_fields"`
 }
 
 // UpdateProfile 修改个人资料与公开主页设置。
+// 仅更新请求中实际提供的字段（指针非 nil），防止局部保存（如只切换公开开关、只改昵称）
+// 把已填的联系方式 / 公开设置覆盖为空串，避免资料被意外清空。
 func (s *AuthService) UpdateProfile(user *model.User, req ProfileReq) error {
-	nickname := strings.TrimSpace(req.Nickname)
-	avatar := strings.TrimSpace(req.Avatar)
-	wechat := strings.TrimSpace(req.Wechat)
-	qq := strings.TrimSpace(req.QQ)
-	phone := strings.TrimSpace(req.Phone)
-	if len([]rune(nickname)) > 64 || len([]rune(avatar)) > 512 ||
-		len([]rune(wechat)) > 64 || len([]rune(qq)) > 32 || len([]rune(phone)) > 32 {
-		return errs.New(errs.ErrValidation, fmt.Errorf("资料长度超出限制"))
-	}
-	if s.words != nil && nickname != "" {
-		if err := s.words.CheckContent(nickname); err != nil {
-			return err
+	updates := map[string]any{}
+	// 昵称
+	if req.Nickname != nil {
+		n := strings.TrimSpace(*req.Nickname)
+		if len([]rune(n)) > 64 {
+			return errs.New(errs.ErrValidation, fmt.Errorf("昵称长度超出限制"))
 		}
+		if s.words != nil && n != "" {
+			if err := s.words.CheckContent(n); err != nil {
+				return err
+			}
+		}
+		updates["nickname"] = n
 	}
-	// 真实姓名 / 就读学校：仅在传入非空时更新（避免空值覆盖已有资料）
+	// 头像
+	if req.Avatar != nil {
+		a := strings.TrimSpace(*req.Avatar)
+		if len([]rune(a)) > 512 {
+			return errs.New(errs.ErrValidation, fmt.Errorf("头像地址过长"))
+		}
+		updates["avatar"] = a
+	}
+	// 微信
+	if req.Wechat != nil {
+		w := strings.TrimSpace(*req.Wechat)
+		if len([]rune(w)) > 64 {
+			return errs.New(errs.ErrValidation, fmt.Errorf("微信长度超出限制"))
+		}
+		updates["wechat"] = w
+	}
+	// QQ
+	if req.QQ != nil {
+		q := strings.TrimSpace(*req.QQ)
+		if len([]rune(q)) > 32 {
+			return errs.New(errs.ErrValidation, fmt.Errorf("QQ 长度超出限制"))
+		}
+		updates["qq"] = q
+	}
+	// 手机
+	if req.Phone != nil {
+		p := strings.TrimSpace(*req.Phone)
+		if len([]rune(p)) > 32 {
+			return errs.New(errs.ErrValidation, fmt.Errorf("手机号长度超出限制"))
+		}
+		updates["phone"] = p
+	}
+	// 真实姓名 / 就读学校：仅当传入非空时更新（不允许经此接口置空），避免误清空
 	realName := strings.TrimSpace(req.RealName)
 	school := strings.TrimSpace(req.School)
 	if realName != "" && (len([]rune(realName)) < 2 || len([]rune(realName)) > 32) {
@@ -202,31 +238,29 @@ func (s *AuthService) UpdateProfile(user *model.User, req ProfileReq) error {
 			return err
 		}
 	}
-	// 公开字段白名单
-	allowed := map[string]bool{"wechat": true, "qq": true, "phone": true, "school": true, "real_name": true}
-	clean := make([]string, 0, 5)
-	for _, f := range strings.Split(req.PublicFields, ",") {
-		f = strings.TrimSpace(f)
-		if allowed[f] {
-			clean = append(clean, f)
-		}
-	}
-	updates := map[string]any{
-		"nickname":      nickname,
-		"avatar":        avatar,
-		"wechat":        wechat,
-		"qq":            qq,
-		"phone":         phone,
-		"public_fields": strings.Join(clean, ","),
-	}
 	if realName != "" {
 		updates["real_name"] = realName
 	}
 	if school != "" {
 		updates["school"] = school
 	}
+	// 公开字段白名单：仅当请求提供 public_fields 时才更新（避免只存资料时清空公开设置）
+	if req.PublicFields != nil {
+		allowed := map[string]bool{"wechat": true, "qq": true, "phone": true, "school": true, "real_name": true}
+		clean := make([]string, 0, 5)
+		for _, f := range strings.Split(*req.PublicFields, ",") {
+			f = strings.TrimSpace(f)
+			if allowed[f] {
+				clean = append(clean, f)
+			}
+		}
+		updates["public_fields"] = strings.Join(clean, ",")
+	}
 	if req.ProfilePublic != nil {
 		updates["profile_public"] = *req.ProfilePublic
+	}
+	if len(updates) == 0 {
+		return nil
 	}
 	return s.db.Model(&model.User{}).Where("id = ?", user.ID).Updates(updates).Error
 }
