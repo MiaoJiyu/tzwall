@@ -61,13 +61,17 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const meta = useMetaStore()
   const needAuth = to.matched.some((r) => r.meta.requireAuth)
   if (needAuth && !auth.isLoggedIn) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
+  // 确保页面权限清单已按「当前登录态」加载：登录后 SPA 跳转时，token 监听触发的
+  // fetchRoutes 为异步，可能尚未完成；此处按 token 去重，未加载则先拉取，
+  // 避免用「游客态」清单误判已登录页面为无权限而跳 /403。
+  await meta.ensureRoutes()
   const needAdmin = to.matched.some((r) => r.meta.admin)
   if (needAdmin && !auth.isAdmin) {
     return { path: '/403' }

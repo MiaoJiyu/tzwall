@@ -9,6 +9,9 @@ export const useMetaStore = defineStore('meta', () => {
   const routes = ref<any[]>([])
   const allowedPages = ref<string[]>([])
   const loading = ref(false)
+  // 记录最近一次「页面权限清单」所对应的 token（空串表示游客）。
+  // 用于在登录/登出后避免用旧（游客）清单误判页面权限。
+  const loadedToken = ref<string | null>(null)
 
   async function fetchSite() {
     try {
@@ -28,6 +31,20 @@ export const useMetaStore = defineStore('meta', () => {
       routes.value = []
       allowedPages.value = []
     }
+    // 记录本次清单对应的登录态（token 变化即视为不同用户/游客）
+    const auth = useAuthStore()
+    loadedToken.value = auth.token || ''
+  }
+
+  // ensureRoutes 确保当前登录态对应的页面权限清单已加载：
+  // 登录/登出后 token 变化，守卫判定前必须先按新 token 重新拉取，
+  // 否则会用「游客态」清单误判已登录页面为无权限（跳 /403）。
+  // 仅 token 变化时才真正请求，正常导航不重复拉取。
+  async function ensureRoutes() {
+    const auth = useAuthStore()
+    const t = auth.token || ''
+    if (loadedToken.value === t) return
+    await fetchRoutes()
   }
 
   async function fetchAgreements() {
@@ -52,5 +69,5 @@ export const useMetaStore = defineStore('meta', () => {
     return allowedPages.value.includes(pageKey)
   }
 
-  return { site, agreements, routes, allowedPages, loading, fetchSite, fetchRoutes, fetchAgreements, ensureAgreement, can }
+  return { site, agreements, routes, allowedPages, loading, fetchSite, fetchRoutes, ensureRoutes, fetchAgreements, ensureAgreement, can }
 })
