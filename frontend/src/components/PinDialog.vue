@@ -57,6 +57,8 @@ function submit() {
               format="YYYY-MM-DD HH:mm:ss"
               value-format="YYYY-MM-DD HH:mm:ss"
               :clearable="true"
+              :teleported="true"
+              popper-class="pin-date-popper"
               style="width: 100%"
             />
           </div>
@@ -73,3 +75,14 @@ function submit() {
     </div>
   </Teleport>
 </template>
+
+<style>
+/* 置顶弹窗遮罩层级为 z-[9997]，日期选择器弹出层默认 z-index 较低会被遮挡，
+   这里将日期面板层级提到遮罩之上（!important 覆盖 Element Plus 的内联 z-index）。 */
+.pin-date-popper {
+  z-index: 9999 !important;
+}
+.pin-date-popper .el-picker-panel {
+  z-index: 9999 !important;
+}
+</style>
