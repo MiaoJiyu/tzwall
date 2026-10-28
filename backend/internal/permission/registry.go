@@ -98,7 +98,7 @@ var Endpoints = []Endpoint{
 	epR("POST", "/api/auth/web-login/qrcode", GroupAuth, "网页登录小程序码", true, 0, 60, 0, 0),
 	epR("POST", "/api/auth/web-login/confirm", GroupAuth, "网页登录确认", true, 0, 0, 60, 0),
 	epR("POST", "/api/auth/web-login/poll", GroupAuth, "网页登录轮询", true, 0, 300, 0, 0),
-	ep("POST", "/api/auth/wechat/bind-code", GroupAuth, "生成微信绑定码", false, model.RoleUser),
+	ep("POST", "/api/auth/wechat/bind-code", GroupAuth, "生成微信绑定码", false, model.RoleUser, model.RoleAdmin),
 	ep("POST", "/api/auth/wechat/bind-code/confirm", GroupAuth, "微信绑定码确认", true),
 	ep("POST", "/api/auth/wechat/bind/confirm", GroupAuth, "微信绑定令牌确认", true),
 	ep("POST", "/api/auth/me", GroupAuth, "当前用户", false, model.RoleUser, model.RoleAdmin),
