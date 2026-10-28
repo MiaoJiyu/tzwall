@@ -38,10 +38,17 @@ const pollDialog = ref(false)
 const myPolls = ref<any[]>([])
 const pollSel = ref<number[]>([])
 const pollMax = ref(3)
+// 当前登录者是否管理员（管理员可跨用户关联投票）
+function isAdminUser() {
+  const u = auth.user
+  return auth.isAdmin || u?.role === 'admin' || u?.role === 'super_admin'
+}
+// 是否可管理本投稿的关联投票：
+// - 管理员：任意用户的投稿；
+// - 普通用户：仅自己的投稿（detail.user_id 与当前用户一致）。
 function canManagePolls() {
   const u = auth.user
-  const isAdmin = auth.isAdmin || u?.role === 'admin' || u?.role === 'super_admin'
-  return auth.isLoggedIn && (isAdmin || (detail.value && detail.value.user_id === u?.id))
+  return auth.isLoggedIn && (isAdminUser() || (detail.value && detail.value.user_id === u?.id))
 }
 async function loadPolls() {
   try {
@@ -54,8 +61,16 @@ async function loadPolls() {
 }
 async function openPollPicker() {
   try {
-    const r: any = await pollApi.mine()
-    myPolls.value = r.items || []
+    if (isAdminUser()) {
+      // 管理员：可关联任意用户（自己或他人）的投票，加载全部投票；
+      // 返回项含 linked_submission_id，用于禁用已被其他投稿占用的投票。
+      const r: any = await pollApi.list({ page_size: 50 })
+      myPolls.value = r.items || []
+    } else {
+      // 普通用户：仅能关联自己发起、未截止且未被其他投稿占用的投票。
+      const r: any = await pollApi.mine()
+      myPolls.value = r.items || []
+    }
   } catch {
     myPolls.value = []
   }
@@ -293,7 +308,9 @@ onMounted(() => {
             <p class="mt-2 text-xs text-[var(--text-soft)]">
               最多可关联 <b>{{ pollMax }}</b> 个，当前已选 <b>{{ pollSel.length }}</b> 个。只能关联自己发起、未截止且未被其他投稿占用的投票。
             </p>
-            <div v-if="!myPolls.length" class="py-6 text-center text-sm text-[var(--text-soft)]">你还没有发起过投票，可前往「投票」页发起。</div>
+            <div v-if="!myPolls.length" class="py-6 text-center text-sm text-[var(--text-soft)]">
+              {{ isAdminUser() ? '暂无可关联的投票' : '你还没有发起过投票，可前往「投票」页发起。' }}
+            </div>
             <div v-else class="mt-3 max-h-[50vh] space-y-2 overflow-y-auto">
               <button
                 v-for="p in myPolls"
@@ -310,6 +327,7 @@ onMounted(() => {
                   <span class="block truncate font-medium">{{ p.title }}</span>
                   <span class="text-xs text-[var(--text-soft)]">
                     {{ p.expired ? '已截止' : (p.total_votes + ' 票') }}
+                    <template v-if="p.creator"> · {{ p.creator }}</template>
                     <template v-if="p.linked_submission_id && p.linked_submission_id !== id"> · 已关联其他投稿</template>
                   </span>
                 </span>

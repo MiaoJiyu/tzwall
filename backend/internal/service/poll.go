@@ -85,7 +85,11 @@ func (s *PollService) List(uid uint, page, pageSize int, keyword string) ([]Poll
 		return nil, 0, errs.New(errs.CodeInternal, err)
 	}
 	views, err := s.buildViews(polls, uid)
-	return views, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+	s.attachLinkedSubmission(views)
+	return views, total, nil
 }
 
 // Detail 投票详情。
@@ -351,7 +355,13 @@ func (s *PollService) MaxPollsPerSubmission() int {
 }
 
 // SetSubmissionPolls 设置某投稿关联的投票（替换式）。
-// 规则：仅投稿作者或管理员可操作；仅能关联未截止、且未被其他投稿占用的投票；数量不超过配置上限。
+//
+// 权限规则：
+//   - 普通用户：仅能操作「自己」的投稿，且只能关联「自己发起」的投票；
+//   - 管理员：可操作任意用户的投稿，并可关联任意用户（自己或他人）的投票；
+//   - 通用约束：投票未截止、未被其他投稿占用，数量不超过配置上限。
+//
+// 越权访问：非本人投稿或关联他人投票时返回 403（CodeForbidden）并给出提示。
 func (s *PollService) SetSubmissionPolls(actor *model.User, submissionID uint, pollIDs []uint) error {
 	if !s.enabled() {
 		return errs.New(errs.ErrValidation, fmt.Errorf("投票功能未开启"))
@@ -392,7 +402,7 @@ func (s *PollService) SetSubmissionPolls(actor *model.User, submissionID uint, p
 				return errs.New(errs.ErrValidation, fmt.Errorf("投票「%s」已截止，无法关联", p.Title))
 			}
 			if !actor.IsAdmin() && p.UserID != actor.ID {
-				return errs.New(errs.ErrValidation, fmt.Errorf("只能关联自己发起的投票"))
+				return errs.New(errs.CodeForbidden, fmt.Errorf("只能关联自己发起的投票（管理员可关联任意用户的投票）"))
 			}
 			var cnt int64
 			s.db.Model(&model.SubmissionPoll{}).
@@ -458,22 +468,30 @@ func (s *PollService) ListMine(uid uint, limit int) ([]PollView, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(views) > 0 {
-		ids := make([]uint, 0, len(views))
-		for _, v := range views {
-			ids = append(ids, v.ID)
-		}
-		var links []model.SubmissionPoll
-		s.db.Where("poll_id IN ?", ids).Find(&links)
-		byPoll := map[uint]uint{}
-		for _, l := range links {
-			byPoll[l.PollID] = l.SubmissionID
-		}
-		for i := range views {
-			if sid, ok := byPoll[views[i].ID]; ok {
-				views[i].LinkedSubmissionID = sid
-			}
+	s.attachLinkedSubmission(views)
+	return views, nil
+}
+
+// attachLinkedSubmission 为投票视图填充其已关联的投稿 ID。
+// 关联选择时据此禁用“已被其他投稿占用”的投票；对普通用户与其本人投票、
+// 对管理员在“全部投票”选择场景下同样可用。
+func (s *PollService) attachLinkedSubmission(views []PollView) {
+	if len(views) == 0 {
+		return
+	}
+	ids := make([]uint, 0, len(views))
+	for _, v := range views {
+		ids = append(ids, v.ID)
+	}
+	var links []model.SubmissionPoll
+	s.db.Where("poll_id IN ?", ids).Find(&links)
+	byPoll := map[uint]uint{}
+	for _, l := range links {
+		byPoll[l.PollID] = l.SubmissionID
+	}
+	for i := range views {
+		if sid, ok := byPoll[views[i].ID]; ok {
+			views[i].LinkedSubmissionID = sid
 		}
 	}
-	return views, nil
 }
