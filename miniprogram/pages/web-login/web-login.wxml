@@ -17,9 +17,8 @@
       输入其上显示的票号，即可让该浏览器自动登录。票号 5 分钟内有效，仅可使用一次。
     </view>
     <view class="form-tip">
-      在网页「个人中心 → 绑定微信」处扫描小程序码或二维码，可免输入自动绑定当前微信，令牌 10 分钟内有效、消费即失效。
+      在网页「个人中心 → 绑定微信」处扫描小程序码，可免输入自动绑定当前微信，令牌 10 分钟内有效、消费即失效。
     </view>
-    <button class="btn-plain" bindtap="scanCode">扫二维码自动填入</button>
     <view wx:if="{{status}}" class="form-tip form-status">{{status}}</view>
   </view>
 

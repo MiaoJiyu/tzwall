@@ -1,6 +1,5 @@
 const { request } = require('../../utils/request');
 const auth = require('../../utils/auth');
-const scan = require('../../utils/scan');
 
 // 网页登录确认（方案 B：小程序码携带 scene）
 // 两种场景，均复用本确认页，按 scene 前缀分流：
@@ -71,7 +70,8 @@ Page({
         if (code === 41009) {
           this.setData({ status: '票号已失效，请在网页刷新后重试' });
         } else if (code === 41020) {
-          this.setData({ status: '该微信尚未注册账号' });
+          // 扫码进入但微信号尚未注册：自动跳转注册页
+          this.gotoRegister();
         }
       });
   },
@@ -97,30 +97,34 @@ Page({
         const code = err && err.code;
         if (code === 41009) {
           this.setData({ status: '绑定已失效，请在网页刷新后重试' });
+        } else if (code === 41020) {
+          // 该微信尚未注册账号（扫码即绑前需先注册）
+          this.gotoRegister();
         }
       });
   },
 
-  // 扫描二维码/小程序码：识别网页登录票号或 bind:<token> 自动触发对应流程
-  scanCode() {
-    if (this.data.submitting) return;
-    scan.scanQRCode()
-      .then((raw) => {
-        const scene = scan.extractScene(raw) || raw;
-        if (scene.startsWith('bind:')) {
-          this.bindWechat(scene.slice(5));
-          return;
+  // 微信号尚未注册：携带 need_register 票据跳转注册页
+  gotoRegister() {
+    this.setData({ submitting: true, status: '该微信尚未注册，正在前往注册…' });
+    auth.login()
+      .then((r) => {
+        if (r && r.status === auth.NEED && r.ticket) {
+          // redirectTo 替换当前确认页，避免返回栈残留；注册成功后会 reLaunch 首页
+          wx.redirectTo({ url: '/pages/register/register?ticket=' + encodeURIComponent(r.ticket) });
+        } else if (r && r.status === 'ok') {
+          // 并发/状态变化导致已注册：直接回首页
+          this.setData({ submitting: false });
+          wx.reLaunch({ url: '/pages/index/index' });
+        } else {
+          this.setData({ submitting: false, status: '' });
+          wx.showToast({ title: '获取注册凭证失败', icon: 'none' });
         }
-        const ticket = scan.extractTicket(raw);
-        if (!ticket) {
-          wx.showToast({ title: '未能识别网页票号', icon: 'none' });
-          return;
-        }
-        this.setData({ ticket: ticket });
-        wx.showToast({ title: '已识别，正在确认', icon: 'success' });
-        this.confirm();
       })
-      .catch((err) => scan.handleScanFail(err));
+      .catch(() => {
+        this.setData({ submitting: false, status: '' });
+        wx.showToast({ title: '获取注册凭证失败，请重试', icon: 'none' });
+      });
   },
 
   // 扫码进入时本页就是启动页，navigateBack 无栈可退，需回首页

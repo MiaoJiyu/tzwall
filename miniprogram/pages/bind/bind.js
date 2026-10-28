@@ -1,5 +1,4 @@
 const auth = require('../../utils/auth');
-const scan = require('../../utils/scan');
 
 Page({
   data: {
@@ -18,29 +17,6 @@ Page({
 
   onInput(e) {
     this.setData({ bindCode: e.detail.value });
-  },
-
-  // 扫描网页上的绑定二维码/小程序码：识别后自动填入并触发绑定
-  scanCode() {
-    if (this.data.submitting) return;
-    scan.scanQRCode()
-      .then((raw) => {
-        // 兼容「扫码即绑」令牌：bind:<token> 或 小程序码 scene=bind:<token>
-        const scene = scan.extractScene(raw) || raw;
-        if (scene.startsWith('bind:')) {
-          this.bindByToken(scene.slice(5));
-          return;
-        }
-        const code = scan.extractBindCode(raw);
-        if (!code) {
-          wx.showToast({ title: '未能识别绑定码', icon: 'none' });
-          return;
-        }
-        this.setData({ bindCode: code });
-        wx.showToast({ title: '已识别，正在绑定', icon: 'success' });
-        this.submit();
-      })
-      .catch((err) => scan.handleScanFail(err));
   },
 
   // 扫码即绑：网页「绑定微信」令牌（bind:<token>）
